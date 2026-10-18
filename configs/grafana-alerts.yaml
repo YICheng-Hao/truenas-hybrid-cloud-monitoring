@@ -1,0 +1,146 @@
+apiVersion: 1
+groups:
+  - orgId: 1
+    name: nas_1m_eval
+    folder: TrueNAS_Alerts
+    interval: 1m
+    rules:
+      # 1. 節點離線或 S3 API 異常告警 (小於 1 代表異常，持續 2 分鐘觸發)
+      - uid: alert_node_or_s3_down
+        title: TrueNAS 節點或 S3 監控離線告警
+        condition: C
+        for: 2m
+        noDataState: Alerting
+        execErrState: Error
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: cg15oru9k9clcd
+            model:
+              expr: up{job="truenas_snmp"} or aws_s3_bucket_health_status{job="aws_s3"}
+              instant: true
+              refId: A
+          - refId: B
+            datasourceUid: __expr__
+            model:
+              type: reduce
+              expression: A
+              reducer: last
+              refId: B
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: B
+              refId: C
+              conditions:
+                - evaluator:
+                    type: lt
+                    params: [1]
+
+      # 2. ZFS 儲存池容量超標告警 (超過 85% 持續 5 分鐘觸發)
+      - uid: alert_zfs_pool_cap_high
+        title: TrueNAS 儲存池容量超標告警 (>85%)
+        condition: C
+        for: 5m
+        noDataState: NoData
+        execErrState: Error
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: cg15oru9k9clcd
+            model:
+              expr: 100 * hrStorageUsed{job="truenas_snmp", hrStorageDescr=~"/mnt/mainpool|/mnt/backuppool"} / hrStorageSize{job="truenas_snmp", hrStorageDescr=~"/mnt/mainpool|/mnt/backuppool"}
+              instant: true
+              refId: A
+          - refId: B
+            datasourceUid: __expr__
+            model:
+              type: reduce
+              expression: A
+              reducer: last
+              refId: B
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: B
+              refId: C
+              conditions:
+                - evaluator:
+                    type: gt
+                    params: [85]
+
+      # 3. 主備站容量同步落差過大告警 (落差超過 10 GiB 持續 15 分鐘觸發)
+      - uid: alert_zfs_repl_drift
+        title: 主備站 ZFS 容量同步落差告警 (>10GiB)
+        condition: C
+        for: 15m
+        noDataState: NoData
+        execErrState: Error
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: cg15oru9k9clcd
+            model:
+              expr: abs((hrStorageUsed{nodename="TrueNAS_A",hrStorageDescr="/mnt/mainpool"} * hrStorageAllocationUnits{nodename="TrueNAS_A",hrStorageDescr="/mnt/mainpool"}) - ignoring(nodename, instance, hrStorageDescr, hrStorageIndex) (hrStorageUsed{nodename="TrueNAS_B",hrStorageDescr="/mnt/backuppool"} * hrStorageAllocationUnits{nodename="TrueNAS_B",hrStorageDescr="/mnt/backuppool"}))
+              instant: true
+              refId: A
+          - refId: B
+            datasourceUid: __expr__
+            model:
+              type: reduce
+              expression: A
+              reducer: last
+              refId: B
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: B
+              refId: C
+              conditions:
+                - evaluator:
+                    type: gt
+                    params: [10737418240]
+
+      # 4. AWS S3 雲端備份超時告警 (距上次成功同步超過 28 小時 = 100800 秒，持續 5 分鐘觸發)
+      - uid: alert_s3_rpo_timeout
+        title: AWS S3 雲端備份超時告警 (RPO > 28h)
+        condition: C
+        for: 5m
+        noDataState: Alerting
+        execErrState: Error
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: cg15oru9k9clcd
+            model:
+              expr: time() - truenas_cloudsync_last_success_timestamp_seconds{job="cloudsync_success",task_id="1"}
+              instant: true
+              refId: A
+          - refId: B
+            datasourceUid: __expr__
+            model:
+              type: reduce
+              expression: A
+              reducer: last
+              refId: B
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: B
+              refId: C
+              conditions:
+                - evaluator:
+                    type: gt
+                    params: [100800]
