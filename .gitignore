@@ -1,0 +1,5 @@
+*.env
+credentials
+last_success.json
+__pycache__/
+*.pyc

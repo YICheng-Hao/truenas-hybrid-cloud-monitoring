@@ -1,0 +1,18 @@
+[Unit]
+Description=TrueNAS Cloud Sync Success Receiver (:9108)
+Wants=network-online.target
+After=network-online.target tailscaled.service
+[Service]
+Type=simple
+User=cloudsync-monitor
+Group=cloudsync-monitor
+EnvironmentFile=/etc/cloudsync-monitor.env
+ExecStart=/usr/bin/python3 /opt/cloudsync-monitor/cloudsync_success_receiver.py
+Restart=on-failure
+RestartSec=10
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/cloudsync-monitor
+[Install]
+WantedBy=multi-user.target

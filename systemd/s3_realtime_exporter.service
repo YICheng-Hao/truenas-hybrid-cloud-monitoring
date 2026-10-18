@@ -1,0 +1,14 @@
+[Unit]
+Description=Prometheus AWS S3 Realtime Inventory Exporter (:9107)
+Wants=network-online.target
+After=network-online.target
+[Service]
+Type=simple
+User=cloudwatch_exporter
+Group=cloudwatch_exporter
+EnvironmentFile=/etc/s3-exporter.env
+ExecStart=/usr/bin/python3 /usr/local/bin/s3_realtime_exporter.py
+Restart=on-failure
+RestartSec=10
+[Install]
+WantedBy=multi-user.target
