@@ -2,6 +2,8 @@
 
 本文件整合本專案實作及 2026-10-19 的修正。全新 VM 依序執行一次即可；既有 VM 更新參閱 [zfs-failure-test.md](zfs-failure-test.md)，不要將兩種流程混用。
 
+既有主機遇到容量空白且 deploy-zfs-members.py 因缺少成員指標而還原時，改用該文件的「既有 VM：容量更新被成員檢查阻擋」流程與 deploy-zfs-capacity.py。不要為了修容量而重建 Grafana 或重新載入全部告警。
+
 ## 7.1 架構、版本與必填參數
 
 本流程重現既有 SNMP Exporter 0.26.0、Prometheus 2.54.1 設定；Grafana 由官方 RPM 套件庫安裝。這是專案版本基準，不宣稱是最新版。VM 為 Rocky Linux 9 x86-64，可 SSH 登入並 sudo；監控流量透過 Tailscale，VM 本身仍需有可用的對外路由／DNS 下載套件。

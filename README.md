@@ -6,6 +6,8 @@
 
 容量已修正為 zfs list 的池根資料集 USED／AVAILABLE，總資料空間為兩者相加。舊版約 3 TB 是含 RAID-Z2 同位元空間的原始磁碟總量，不再用來代表可用資料容量。TrueNAS 的 extend zfs_capacity 命令也必須一併更新，詳見指南 7.3。
 
+既有 VM 只修容量顯示時，使用 [容量專用更新腳本](scripts/deploy-zfs-capacity.py)，步驟見 [容量故障排除](docs/zfs-failure-test.md#既有-vm容量更新被成員檢查阻擋)。它不依賴成員指標、不改告警、不重啟 Grafana，會驗證兩站容量後才保留更新。完整 deploy-zfs-members.py 的成員檢查失敗時會還原設定，不代表新容量已完成部署。
+
 ## 2026-10-19 成員故障監控修正
 
 實測出現「mainpool 整體仍 ONLINE，但兩顆成員磁碟已 FAULTED」。單靠 zpoolHealthStr 會漏報，因此加入 SNMP extend 成員狀態採集。使用者截圖確認 A 站指標為 1，Discord 收到成員異常通知；B 站則收到成員狀態無法取得通知。尚未確認 Email、磁碟更換及重建完成。

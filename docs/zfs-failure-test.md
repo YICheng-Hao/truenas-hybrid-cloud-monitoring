@@ -113,3 +113,34 @@ RAID-Z2 每個 VDEV 容忍兩顆資料碟故障；雙系統碟 Mirror 僅容忍�
 ## 從零重建
 
 完整的新 VM 建置順序與設定彙整，見 [monitoring-vm-from-zero.md](monitoring-vm-from-zero.md)。新主機只載入整合九條規則；容量使用 zfs 根資料集 USED／AVAILABLE，額外考量 quota、reservation 與 ZFS 保留空間。
+
+## 既有 VM：容量更新被成員檢查阻擋
+
+若完整部署腳本出現 `A site did not return zfsMemberFault; changes will be rolled back`，代表更新已還原。此時新版 Dashboard 查詢 zfsUsablePool，但採集端仍可能是舊 zfsDataPool，故容量無資料。不要重新匯入相同 JSON 或繼續等待採集。
+
+先確認 A、B 兩站 SNMP 附屬參數同時保留兩行，每個名稱各一次，儲存並重啟該站 SNMP：
+
+```text
+extend zfs /usr/sbin/zpool status -P
+extend zfs_capacity /usr/sbin/zfs list -Hp -o name,used,available
+```
+
+之後在 Rocky 監控 VM 以 root 執行容量專用更新：
+
+```bash
+(
+set -e
+git -C /root/truenas-hybrid-cloud-monitoring fetch origin main
+git -C /root/truenas-hybrid-cloud-monitoring show \
+  FETCH_HEAD:scripts/deploy-zfs-capacity.py > /root/deploy-zfs-capacity.py
+python3 /root/deploy-zfs-capacity.py
+)
+```
+
+此腳本只增加／更新 SNMP Exporter 的容量解析與相應 GET OID，保留其他指標及既有告警。不檢查成員指標作為容量部署前提，不改 Prometheus 目標，不重啟 Grafana，也不把缺少的健康資料當正常。兩站容量數值皆實際讀取成功才保留更新；任一站失敗時輸出該站容量原始回覆並還原 Exporter 設定。
+
+應看到 A、B 各自的 USED、AVAILABLE、合計 TiB，及「兩站容量指標均已實際讀取成功」。此後等待下一次 15 秒採集並重新整理目前面板即可；無須再換 JSON。若有錯誤，保留腳本的完整輸出判讀，勿宣稱已完成。
+
+容量專用腳本不修改容量門檻規則；若需要更新舊容量告警，應於成員來源確認後完成整合部署，或依 configs/grafana-alerts.yaml 的 alert_zfs_pool_cap_high 設定更新。從零建置的整合九條規則已使用新版資料容量。
+
+本修正另以真正的 snmp_exporter 0.26.0 連到本機模擬 SNMP 回覆，確認 A／B 根資料集數值可輸出、子資料集不重複計算、舊五欄 zpool 格式不被誤認成資料容量。測試程式為 tests/snmp-capacity-smoke.py；這不代表遠端 TrueNAS 設定已自動生效。
