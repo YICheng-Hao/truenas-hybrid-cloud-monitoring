@@ -63,4 +63,10 @@ RAID-Z2 每組 VDEV 可容忍兩顆資料碟故障。兩顆系統碟的 Mirror �
 
 ## 驗證範圍
 
+## 實機啟動錯誤修正
+
+2026-10-19 使用者提供的 Grafana 日誌指出獨立部署腳本使用的 `interval: 15s` 無法被 10 秒基準的排程器接受，導致 provisioning 模組啟動失敗。`scripts/deploy-zfs-alerts.py` 已改成 `interval: 1m`，群組為 `zfs_health_1m`。這與 Prometheus 的 SNMP `scrape_interval: 15s` 不同；後者不需修改。
+
+獨立腳本適用於現有四條規則的主機，另外新增三條 ZFS 規則；整合版 `configs/grafana-alerts.yaml` 已包含七條，兩種方式擇一，避免重複 uid。腳本會先檢查其他 provisioning 檔案是否已有相同規則。
+
 本次使用 Prometheus 2.54.1 promtool 對 ONLINE、DEGRADED、FAULTED、OFFLINE、SUSPENDED、SNMP 採集失敗及健康指標缺失進行七組合成資料測試。另驗證 Prometheus 設定與所有 PromQL 語法。尚未登入實際 Grafana／TrueNAS，未聲稱真實磁碟故障、郵件／Discord 或重建測試已通過。
