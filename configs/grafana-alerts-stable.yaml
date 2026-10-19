@@ -1,0 +1,453 @@
+apiVersion: 1
+groups:
+- orgId: 1
+  name: nas_1m_eval
+  folder: TrueNAS_Alerts
+  interval: 1m
+  rules:
+  - uid: alert_node_or_s3_down
+    title: TrueNAS 節點或 S3 監控離線告警
+    condition: C
+    for: 2m
+    noDataState: Alerting
+    execErrState: Error
+    data:
+    - refId: A
+      relativeTimeRange:
+        from: 300
+        to: 0
+      datasourceUid: cg15oru9k9clcd
+      model:
+        expr: up{job="truenas_snmp"} or aws_s3_bucket_health_status{job="aws_s3"}
+        instant: true
+        refId: A
+    - refId: B
+      datasourceUid: __expr__
+      model:
+        type: reduce
+        expression: A
+        reducer: last
+        refId: B
+    - refId: C
+      datasourceUid: __expr__
+      model:
+        type: threshold
+        expression: B
+        refId: C
+        conditions:
+        - evaluator:
+            type: lt
+            params:
+            - 1
+  - uid: alert_zfs_pool_cap_high
+    title: 根掛載點使用率超過 85%（非整池用量）
+    condition: C
+    for: 5m
+    noDataState: NoData
+    execErrState: Error
+    data:
+    - refId: A
+      relativeTimeRange:
+        from: 300
+        to: 0
+      datasourceUid: cg15oru9k9clcd
+      model:
+        expr: 100 * hrStorageUsed{job="truenas_snmp",hrStorageDescr=~"/mnt/mainpool|/mnt/backuppool"}
+          / hrStorageSize{job="truenas_snmp",hrStorageDescr=~"/mnt/mainpool|/mnt/backuppool"}
+        instant: true
+        refId: A
+    - refId: B
+      datasourceUid: __expr__
+      model:
+        type: reduce
+        expression: A
+        reducer: last
+        refId: B
+    - refId: C
+      datasourceUid: __expr__
+      model:
+        type: threshold
+        expression: B
+        refId: C
+        conditions:
+        - evaluator:
+            type: gt
+            params:
+            - 85
+    annotations:
+      summary: 根掛載點使用率超過 85%
+      description: 此為 hrStorage 根掛載點統計，可能不含子資料集與快照；不等於整池用量。請查看 TrueNAS 實際可用容量。
+  - uid: alert_zfs_repl_drift
+    title: 主備站已用空間差異超過 10 GiB（僅供參考）
+    condition: C
+    for: 15m
+    noDataState: NoData
+    execErrState: Error
+    data:
+    - refId: A
+      relativeTimeRange:
+        from: 300
+        to: 0
+      datasourceUid: cg15oru9k9clcd
+      model:
+        expr: abs(sum(hrStorageUsed{nodename="TrueNAS_A",hrStorageDescr="/mnt/mainpool"}
+          * hrStorageAllocationUnits{nodename="TrueNAS_A",hrStorageDescr="/mnt/mainpool"})
+          - sum(hrStorageUsed{nodename="TrueNAS_B",hrStorageDescr="/mnt/backuppool"}
+          * hrStorageAllocationUnits{nodename="TrueNAS_B",hrStorageDescr="/mnt/backuppool"}))
+        instant: true
+        refId: A
+    - refId: B
+      datasourceUid: __expr__
+      model:
+        type: reduce
+        expression: A
+        reducer: last
+        refId: B
+    - refId: C
+      datasourceUid: __expr__
+      model:
+        type: threshold
+        expression: B
+        refId: C
+        conditions:
+        - evaluator:
+            type: gt
+            params:
+            - 10737418240
+    annotations:
+      summary: 兩站已用空間差異偏大
+      description: 快照保留、壓縮及其他資料都可能造成差異；本規則不驗證複寫成功或資料一致性。
+  - uid: alert_s3_rpo_timeout
+    title: Cloud Sync 成功回報逾時（>28h）
+    condition: C
+    for: 5m
+    noDataState: Alerting
+    execErrState: Error
+    data:
+    - refId: A
+      relativeTimeRange:
+        from: 300
+        to: 0
+      datasourceUid: cg15oru9k9clcd
+      model:
+        expr: time() - truenas_cloudsync_last_success_timestamp_seconds{job="cloudsync_success",task_id="1"}
+        instant: true
+        refId: A
+    - refId: B
+      datasourceUid: __expr__
+      model:
+        type: reduce
+        expression: A
+        reducer: last
+        refId: B
+    - refId: C
+      datasourceUid: __expr__
+      model:
+        type: threshold
+        expression: B
+        refId: C
+        conditions:
+        - evaluator:
+            type: gt
+            params:
+            - 100800
+  - uid: alert_zfs_degraded
+    title: ZFS 儲存池降級（DEGRADED）
+    condition: C
+    for: 1m
+    noDataState: NoData
+    execErrState: Error
+    data:
+    - refId: A
+      relativeTimeRange:
+        from: 300
+        to: 0
+      datasourceUid: cg15oru9k9clcd
+      model:
+        expr: ((max by (job, instance, zpoolName) ((zpoolHealthStr{job="truenas_snmp",instance="100.114.236.88",zpoolName="mainpool",zpoolHealthStr="ONLINE"}
+          == 1) or (zpoolHealthStr{job="truenas_snmp",instance="100.114.236.88",zpoolName="mainpool",zpoolHealthStr="DEGRADED"}
+          == 1) * 2 or (zpoolHealthStr{job="truenas_snmp",instance="100.114.236.88",zpoolName="mainpool",zpoolHealthStr!~"ONLINE|DEGRADED"}
+          == 1) * 3) and on (instance) (up{job="truenas_snmp"} == 1)) or on (job,
+          instance, zpoolName) (label_replace(label_replace(label_replace(vector(4),
+          "job", "truenas_snmp", "", ".*"), "instance", "100.114.236.88", "", ".*"),
+          "zpoolName", "mainpool", "", ".*"))) or ((max by (job, instance, zpoolName)
+          ((zpoolHealthStr{job="truenas_snmp",instance="100.113.107.95",zpoolName="backuppool",zpoolHealthStr="ONLINE"}
+          == 1) or (zpoolHealthStr{job="truenas_snmp",instance="100.113.107.95",zpoolName="backuppool",zpoolHealthStr="DEGRADED"}
+          == 1) * 2 or (zpoolHealthStr{job="truenas_snmp",instance="100.113.107.95",zpoolName="backuppool",zpoolHealthStr!~"ONLINE|DEGRADED"}
+          == 1) * 3) and on (instance) (up{job="truenas_snmp"} == 1)) or on (job,
+          instance, zpoolName) (label_replace(label_replace(label_replace(vector(4),
+          "job", "truenas_snmp", "", ".*"), "instance", "100.113.107.95", "", ".*"),
+          "zpoolName", "backuppool", "", ".*"))) or ((max by (job, instance, zpoolName)
+          ((zpoolHealthStr{job="truenas_snmp",instance="100.114.236.88",zpoolName="boot-pool",zpoolHealthStr="ONLINE"}
+          == 1) or (zpoolHealthStr{job="truenas_snmp",instance="100.114.236.88",zpoolName="boot-pool",zpoolHealthStr="DEGRADED"}
+          == 1) * 2 or (zpoolHealthStr{job="truenas_snmp",instance="100.114.236.88",zpoolName="boot-pool",zpoolHealthStr!~"ONLINE|DEGRADED"}
+          == 1) * 3) and on (instance) (up{job="truenas_snmp"} == 1)) or on (job,
+          instance, zpoolName) (label_replace(label_replace(label_replace(vector(4),
+          "job", "truenas_snmp", "", ".*"), "instance", "100.114.236.88", "", ".*"),
+          "zpoolName", "boot-pool", "", ".*"))) or ((max by (job, instance, zpoolName)
+          ((zpoolHealthStr{job="truenas_snmp",instance="100.113.107.95",zpoolName="boot-pool",zpoolHealthStr="ONLINE"}
+          == 1) or (zpoolHealthStr{job="truenas_snmp",instance="100.113.107.95",zpoolName="boot-pool",zpoolHealthStr="DEGRADED"}
+          == 1) * 2 or (zpoolHealthStr{job="truenas_snmp",instance="100.113.107.95",zpoolName="boot-pool",zpoolHealthStr!~"ONLINE|DEGRADED"}
+          == 1) * 3) and on (instance) (up{job="truenas_snmp"} == 1)) or on (job,
+          instance, zpoolName) (label_replace(label_replace(label_replace(vector(4),
+          "job", "truenas_snmp", "", ".*"), "instance", "100.113.107.95", "", ".*"),
+          "zpoolName", "boot-pool", "", ".*")))
+        instant: true
+        refId: A
+    - refId: B
+      datasourceUid: __expr__
+      model:
+        type: reduce
+        expression: A
+        reducer: last
+        refId: B
+    - refId: C
+      datasourceUid: __expr__
+      model:
+        type: threshold
+        expression: B
+        refId: C
+        conditions:
+        - evaluator:
+            type: eq
+            params:
+            - 2
+    labels:
+      severity: warning
+      category: zfs_health
+    annotations:
+      summary: ZFS 儲存池降級（DEGRADED）
+      description: 冗餘已下降。請依 instance 與 zpoolName 在 TrueNAS 定位故障裝置，完成替換及 resilver，確認恢復
+        ONLINE。
+  - uid: alert_zfs_abnormal
+    title: ZFS 儲存池異常（非 ONLINE／DEGRADED）
+    condition: C
+    for: 1m
+    noDataState: NoData
+    execErrState: Error
+    data:
+    - refId: A
+      relativeTimeRange:
+        from: 300
+        to: 0
+      datasourceUid: cg15oru9k9clcd
+      model:
+        expr: ((max by (job, instance, zpoolName) ((zpoolHealthStr{job="truenas_snmp",instance="100.114.236.88",zpoolName="mainpool",zpoolHealthStr="ONLINE"}
+          == 1) or (zpoolHealthStr{job="truenas_snmp",instance="100.114.236.88",zpoolName="mainpool",zpoolHealthStr="DEGRADED"}
+          == 1) * 2 or (zpoolHealthStr{job="truenas_snmp",instance="100.114.236.88",zpoolName="mainpool",zpoolHealthStr!~"ONLINE|DEGRADED"}
+          == 1) * 3) and on (instance) (up{job="truenas_snmp"} == 1)) or on (job,
+          instance, zpoolName) (label_replace(label_replace(label_replace(vector(4),
+          "job", "truenas_snmp", "", ".*"), "instance", "100.114.236.88", "", ".*"),
+          "zpoolName", "mainpool", "", ".*"))) or ((max by (job, instance, zpoolName)
+          ((zpoolHealthStr{job="truenas_snmp",instance="100.113.107.95",zpoolName="backuppool",zpoolHealthStr="ONLINE"}
+          == 1) or (zpoolHealthStr{job="truenas_snmp",instance="100.113.107.95",zpoolName="backuppool",zpoolHealthStr="DEGRADED"}
+          == 1) * 2 or (zpoolHealthStr{job="truenas_snmp",instance="100.113.107.95",zpoolName="backuppool",zpoolHealthStr!~"ONLINE|DEGRADED"}
+          == 1) * 3) and on (instance) (up{job="truenas_snmp"} == 1)) or on (job,
+          instance, zpoolName) (label_replace(label_replace(label_replace(vector(4),
+          "job", "truenas_snmp", "", ".*"), "instance", "100.113.107.95", "", ".*"),
+          "zpoolName", "backuppool", "", ".*"))) or ((max by (job, instance, zpoolName)
+          ((zpoolHealthStr{job="truenas_snmp",instance="100.114.236.88",zpoolName="boot-pool",zpoolHealthStr="ONLINE"}
+          == 1) or (zpoolHealthStr{job="truenas_snmp",instance="100.114.236.88",zpoolName="boot-pool",zpoolHealthStr="DEGRADED"}
+          == 1) * 2 or (zpoolHealthStr{job="truenas_snmp",instance="100.114.236.88",zpoolName="boot-pool",zpoolHealthStr!~"ONLINE|DEGRADED"}
+          == 1) * 3) and on (instance) (up{job="truenas_snmp"} == 1)) or on (job,
+          instance, zpoolName) (label_replace(label_replace(label_replace(vector(4),
+          "job", "truenas_snmp", "", ".*"), "instance", "100.114.236.88", "", ".*"),
+          "zpoolName", "boot-pool", "", ".*"))) or ((max by (job, instance, zpoolName)
+          ((zpoolHealthStr{job="truenas_snmp",instance="100.113.107.95",zpoolName="boot-pool",zpoolHealthStr="ONLINE"}
+          == 1) or (zpoolHealthStr{job="truenas_snmp",instance="100.113.107.95",zpoolName="boot-pool",zpoolHealthStr="DEGRADED"}
+          == 1) * 2 or (zpoolHealthStr{job="truenas_snmp",instance="100.113.107.95",zpoolName="boot-pool",zpoolHealthStr!~"ONLINE|DEGRADED"}
+          == 1) * 3) and on (instance) (up{job="truenas_snmp"} == 1)) or on (job,
+          instance, zpoolName) (label_replace(label_replace(label_replace(vector(4),
+          "job", "truenas_snmp", "", ".*"), "instance", "100.113.107.95", "", ".*"),
+          "zpoolName", "boot-pool", "", ".*")))
+        instant: true
+        refId: A
+    - refId: B
+      datasourceUid: __expr__
+      model:
+        type: reduce
+        expression: A
+        reducer: last
+        refId: B
+    - refId: C
+      datasourceUid: __expr__
+      model:
+        type: threshold
+        expression: B
+        refId: C
+        conditions:
+        - evaluator:
+            type: eq
+            params:
+            - 3
+    labels:
+      severity: critical
+      category: zfs_health
+    annotations:
+      summary: ZFS 儲存池異常（非 ONLINE／DEGRADED）
+      description: 儲存池回報其他異常狀態，可能包含 FAULTED、UNAVAIL、OFFLINE 或 SUSPENDED。請查看 zpoolHealthStr
+        與 zpool status；不將所有異常等同 FAULTED。
+  - uid: alert_zfs_health_missing
+    title: ZFS 健康指標無法取得
+    condition: C
+    for: 2m
+    noDataState: NoData
+    execErrState: Error
+    data:
+    - refId: A
+      relativeTimeRange:
+        from: 300
+        to: 0
+      datasourceUid: cg15oru9k9clcd
+      model:
+        expr: ((max by (job, instance, zpoolName) ((zpoolHealthStr{job="truenas_snmp",instance="100.114.236.88",zpoolName="mainpool",zpoolHealthStr="ONLINE"}
+          == 1) or (zpoolHealthStr{job="truenas_snmp",instance="100.114.236.88",zpoolName="mainpool",zpoolHealthStr="DEGRADED"}
+          == 1) * 2 or (zpoolHealthStr{job="truenas_snmp",instance="100.114.236.88",zpoolName="mainpool",zpoolHealthStr!~"ONLINE|DEGRADED"}
+          == 1) * 3) and on (instance) (up{job="truenas_snmp"} == 1)) or on (job,
+          instance, zpoolName) (label_replace(label_replace(label_replace(vector(4),
+          "job", "truenas_snmp", "", ".*"), "instance", "100.114.236.88", "", ".*"),
+          "zpoolName", "mainpool", "", ".*"))) or ((max by (job, instance, zpoolName)
+          ((zpoolHealthStr{job="truenas_snmp",instance="100.113.107.95",zpoolName="backuppool",zpoolHealthStr="ONLINE"}
+          == 1) or (zpoolHealthStr{job="truenas_snmp",instance="100.113.107.95",zpoolName="backuppool",zpoolHealthStr="DEGRADED"}
+          == 1) * 2 or (zpoolHealthStr{job="truenas_snmp",instance="100.113.107.95",zpoolName="backuppool",zpoolHealthStr!~"ONLINE|DEGRADED"}
+          == 1) * 3) and on (instance) (up{job="truenas_snmp"} == 1)) or on (job,
+          instance, zpoolName) (label_replace(label_replace(label_replace(vector(4),
+          "job", "truenas_snmp", "", ".*"), "instance", "100.113.107.95", "", ".*"),
+          "zpoolName", "backuppool", "", ".*"))) or ((max by (job, instance, zpoolName)
+          ((zpoolHealthStr{job="truenas_snmp",instance="100.114.236.88",zpoolName="boot-pool",zpoolHealthStr="ONLINE"}
+          == 1) or (zpoolHealthStr{job="truenas_snmp",instance="100.114.236.88",zpoolName="boot-pool",zpoolHealthStr="DEGRADED"}
+          == 1) * 2 or (zpoolHealthStr{job="truenas_snmp",instance="100.114.236.88",zpoolName="boot-pool",zpoolHealthStr!~"ONLINE|DEGRADED"}
+          == 1) * 3) and on (instance) (up{job="truenas_snmp"} == 1)) or on (job,
+          instance, zpoolName) (label_replace(label_replace(label_replace(vector(4),
+          "job", "truenas_snmp", "", ".*"), "instance", "100.114.236.88", "", ".*"),
+          "zpoolName", "boot-pool", "", ".*"))) or ((max by (job, instance, zpoolName)
+          ((zpoolHealthStr{job="truenas_snmp",instance="100.113.107.95",zpoolName="boot-pool",zpoolHealthStr="ONLINE"}
+          == 1) or (zpoolHealthStr{job="truenas_snmp",instance="100.113.107.95",zpoolName="boot-pool",zpoolHealthStr="DEGRADED"}
+          == 1) * 2 or (zpoolHealthStr{job="truenas_snmp",instance="100.113.107.95",zpoolName="boot-pool",zpoolHealthStr!~"ONLINE|DEGRADED"}
+          == 1) * 3) and on (instance) (up{job="truenas_snmp"} == 1)) or on (job,
+          instance, zpoolName) (label_replace(label_replace(label_replace(vector(4),
+          "job", "truenas_snmp", "", ".*"), "instance", "100.113.107.95", "", ".*"),
+          "zpoolName", "boot-pool", "", ".*")))
+        instant: true
+        refId: A
+    - refId: B
+      datasourceUid: __expr__
+      model:
+        type: reduce
+        expression: A
+        reducer: last
+        refId: B
+    - refId: C
+      datasourceUid: __expr__
+      model:
+        type: threshold
+        expression: B
+        refId: C
+        conditions:
+        - evaluator:
+            type: eq
+            params:
+            - 4
+    labels:
+      severity: warning
+      category: zfs_health
+    annotations:
+      summary: ZFS 健康指標無法取得
+      description: 預期儲存池沒有有效健康指標，或 SNMP 採集失敗。檢查 truenas_zfs、採集連線及儲存池名稱；本告警不代表磁碟一定故障。
+- orgId: 1
+  name: zfs_members_1m
+  folder: TrueNAS_Alerts
+  interval: 1m
+  rules:
+  - uid: zfs_member_fault_v1
+    title: ZFS 磁碟成員或 VDEV 異常
+    condition: C
+    for: 0s
+    noDataState: NoData
+    execErrState: Error
+    isPaused: false
+    labels:
+      severity: critical
+      category: zfs_members
+    annotations:
+      summary: ZFS 磁碟成員或 VDEV 異常
+      description: 請在來源 TrueNAS 執行 zpool status -P。成員異常不代表整個儲存池已無法存取；狀態無法取得也不等於磁碟故障。
+    data:
+    - refId: A
+      relativeTimeRange:
+        from: 300
+        to: 0
+      datasourceUid: cg15oru9k9clcd
+      model:
+        expr: (max by(instance) (zfsMemberFault{job="truenas_snmp"} and on(instance)
+          (zfsStatusCommandExit{job="truenas_snmp"} == 0) and on(instance) (up{job="truenas_snmp"}
+          == 1))) or on(instance) label_replace(vector(2), "instance", "100.114.236.88",
+          "", ".*") or on(instance) label_replace(vector(2), "instance", "100.113.107.95",
+          "", ".*")
+        instant: true
+        range: false
+        refId: A
+    - refId: B
+      datasourceUid: __expr__
+      model:
+        type: reduce
+        expression: A
+        reducer: last
+        refId: B
+    - refId: C
+      datasourceUid: __expr__
+      model:
+        type: threshold
+        expression: B
+        refId: C
+        conditions:
+        - evaluator:
+            type: eq
+            params:
+            - 1
+  - uid: zfs_member_missing_v1
+    title: ZFS 磁碟成員狀態無法取得
+    condition: C
+    for: 2m
+    noDataState: NoData
+    execErrState: Error
+    isPaused: false
+    labels:
+      severity: warning
+      category: zfs_members
+    annotations:
+      summary: ZFS 磁碟成員狀態無法取得
+      description: 請在來源 TrueNAS 執行 zpool status -P。成員異常不代表整個儲存池已無法存取；狀態無法取得也不等於磁碟故障。
+    data:
+    - refId: A
+      relativeTimeRange:
+        from: 300
+        to: 0
+      datasourceUid: cg15oru9k9clcd
+      model:
+        expr: (max by(instance) (zfsMemberFault{job="truenas_snmp"} and on(instance)
+          (zfsStatusCommandExit{job="truenas_snmp"} == 0) and on(instance) (up{job="truenas_snmp"}
+          == 1))) or on(instance) label_replace(vector(2), "instance", "100.114.236.88",
+          "", ".*") or on(instance) label_replace(vector(2), "instance", "100.113.107.95",
+          "", ".*")
+        instant: true
+        range: false
+        refId: A
+    - refId: B
+      datasourceUid: __expr__
+      model:
+        type: reduce
+        expression: A
+        reducer: last
+        refId: B
+    - refId: C
+      datasourceUid: __expr__
+      model:
+        type: threshold
+        expression: B
+        refId: C
+        conditions:
+        - evaluator:
+            type: eq
+            params:
+            - 2

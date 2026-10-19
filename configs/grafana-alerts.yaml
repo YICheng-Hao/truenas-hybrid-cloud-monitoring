@@ -40,7 +40,7 @@ groups:
             params:
             - 1
   - uid: alert_zfs_pool_cap_high
-    title: ZFS 資料空間使用率超過 85%
+    title: 根掛載點使用率超過 85%（非整池用量）
     condition: C
     for: 5m
     noDataState: NoData
@@ -52,8 +52,8 @@ groups:
         to: 0
       datasourceUid: cg15oru9k9clcd
       model:
-        expr: 100 * zfsUsablePoolUsedBytes{job="truenas_snmp"} / (zfsUsablePoolUsedBytes{job="truenas_snmp"}
-          + zfsUsablePoolAvailableBytes{job="truenas_snmp"})
+        expr: 100 * hrStorageUsed{job="truenas_snmp",hrStorageDescr=~"/mnt/mainpool|/mnt/backuppool"}
+          / hrStorageSize{job="truenas_snmp",hrStorageDescr=~"/mnt/mainpool|/mnt/backuppool"}
         instant: true
         refId: A
     - refId: B
@@ -75,8 +75,8 @@ groups:
             params:
             - 85
     annotations:
-      summary: ZFS 資料空間使用率超過 85%
-      description: 來源為池根資料集 USED／(USED＋AVAILABLE)。包含子資料集與快照用量；不同配額與保留空間設定會影響 AVAILABLE。
+      summary: 根掛載點使用率超過 85%
+      description: 此為 hrStorage 根掛載點統計，可能不含子資料集與快照；不等於整池用量。請查看 TrueNAS 實際可用容量。
   - uid: alert_zfs_repl_drift
     title: 主備站已用空間差異超過 10 GiB（僅供參考）
     condition: C

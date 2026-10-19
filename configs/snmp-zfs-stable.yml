@@ -1,0 +1,38 @@
+modules:
+  truenas_zfs:
+    walk:
+    - 1.3.6.1.4.1.50536.1.1.1.1
+    metrics:
+    - name: zpoolHealthStr
+      oid: 1.3.6.1.4.1.50536.1.1.1.1.3
+      type: DisplayString
+      help: TrueNAS reported pool health string
+      indexes:
+      - labelname: zpoolName
+        type: gauge
+      lookups:
+      - labels:
+        - zpoolName
+        labelname: zpoolName
+        oid: 1.3.6.1.4.1.50536.1.1.1.1.2
+        type: DisplayString
+    - name: zfsMemberFault
+      oid: 1.3.6.1.4.1.8072.1.3.2.3.1.2.3.122.102.115
+      type: DisplayString
+      help: 'ZFS status table: 0 healthy, 1 non-online member or vdev, 2 unrecognized
+        output'
+      regex_extracts:
+        ? ''
+        : - regex: (?s).*\s(?:DEGRADED|FAULTED|UNAVAIL|OFFLINE|REMOVED|SUSPENDED)\s+\d+\s+\d+\s+\d+.*
+            value: '1'
+          - regex: (?s).*config:.*\sONLINE\s+\d+\s+\d+\s+\d+.*errors:.*
+            value: '0'
+          - regex: (?s).*
+            value: '2'
+    - name: zfsStatusCommandExit
+      oid: 1.3.6.1.4.1.8072.1.3.2.3.1.4.3.122.102.115
+      type: gauge
+      help: Exit status of the SNMP extend zpool command; zero means success
+    get:
+    - 1.3.6.1.4.1.8072.1.3.2.3.1.2.3.122.102.115
+    - 1.3.6.1.4.1.8072.1.3.2.3.1.4.3.122.102.115

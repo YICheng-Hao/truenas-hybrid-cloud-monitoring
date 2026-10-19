@@ -1,43 +1,42 @@
-# 企業級 NAS 與儲存安全管理方案 — 混合雲監控中心
+# TrueNAS 混合雲災備監控
 
-本專案收納 TrueNAS A／B、AWS S3、Prometheus 與 Grafana 的監控程式及第七、八章操作設定。
+監測 TrueNAS A／B 的 SNMP、ZFS 健康與磁碟成員，以及 AWS S3 清單和真實 Cloud Sync 成功回報；由 Prometheus 採集、Grafana 顯示與透過 Email／Discord 通知。
 
-從零開始重建 Rocky Linux 9 監控 VM，請依 [完整建置指南](docs/monitoring-vm-from-zero.md) 的 7.1～7.12 順序操作。指南已彙整套件、Tailscale、兩站 SNMP、S3 IAM、Receiver Token、Prometheus、Grafana、九條告警、十面板及雙管道通知驗證。
+## 從零建立監測 VM
 
-目前預設 Dashboard 的兩個容量面板已還原為原先 hrStorage 根掛載點查詢，讓現有主機恢復使用既有資料來源；其餘健康與採集面板未改動。匯入同 UID 並覆寫即可，不需要執行容量更新腳本。掛載點已用可能只反映根資料集自身，不能稱為含全部子資料集與快照的整池用量。
+請依 [完整複製貼上教學](docs/monitoring-vm-from-zero.md) 操作。這是全新 Rocky Linux 9 x86_64 VM 安裝流程。目前正常運作的舊 VM 不需要執行安裝器。
 
-zfs USED／AVAILABLE 採集流程仍保留在程式與從零指南中，但現場 NAS 持續回傳舊 zpool 格式，尚未確認此新流程在使用者兩站成功。約 3 TB 的 zpool 原始容量也不能直接稱為 RAID-Z2 可用資料容量；暫不要求為了恢復顯示繼續變更 NAS 設定。
+```bash
+sudo -i
+dnf install -y git python3 python3-pyyaml
+git clone https://github.com/YICheng-Hao/truenas-hybrid-cloud-monitoring.git /root/truenas-hybrid-cloud-monitoring
+python3 /root/truenas-hybrid-cloud-monitoring/scripts/setup-monitoring-vm.py
+```
 
-既有 VM 只修容量顯示時，使用 [容量專用更新腳本](scripts/deploy-zfs-capacity.py)，步驟見 [容量故障排除](docs/zfs-failure-test.md#既有-vm容量更新被成員檢查阻擋)。它不依賴成員指標、不改告警、不重啟 Grafana，會驗證兩站容量後才保留更新。完整 deploy-zfs-members.py 的成員檢查失敗時會還原設定，不代表新容量已完成部署。
+安裝器逐項詢問實際 IP／網段、AWS 監控憑證、Gmail 應用程式密碼、收件地址、Discord Webhook 與 Grafana 密碼，不必自行修改 Python／YAML／JSON。Tailscale 需要完成登入。私人儲存庫仍需 GitHub 讀取權限。
 
-NAS 回覆仍為舊四數值格式時，先修正該 NAS 的 extend 命令；可使用 [TrueNAS 端設定腳本](scripts/configure-truenas-snmp.py)，須分別在 A、B 的 TrueNAS 本機執行，不能在 Rocky 執行。
+自動部署四個 Prometheus Job、十個面板、九條告警、繁體中文模板、雙通知聯絡點與預設通知路由。最後將自動產生的 `/root/truenas-cloudsync-postscript.sh` 內容貼到 TrueNAS A 的 Cloud Sync Post-script，執行真實同步，再測試 Email／Discord 收訊。首次真實成功前，Cloud Sync 時間沒有資料是預期狀態。
 
-## 2026-10-19 成員故障監控修正
+## 固定使用的設定
 
-實測出現「mainpool 整體仍 ONLINE，但兩顆成員磁碟已 FAULTED」。單靠 zpoolHealthStr 會漏報，因此加入 SNMP extend 成員狀態採集。使用者截圖確認 A 站指標為 1，Discord 收到成員異常通知；B 站則收到成員狀態無法取得通知。尚未確認 Email、磁碟更換及重建完成。
+- `scripts/setup-monitoring-vm.py`：全新監測 VM 安裝／唯讀驗證；重跑保留 Receiver Token 與回報檔，拒絕覆寫未受管的既有 VM。
+- `scripts/configure-truenas-snmp-stable.py`：選用；在 TrueNAS 執行，建立 SNMP `extend zfs` 成員來源。
+- `configs/snmp-zfs-stable.yml`：預設 ZFS 健康與成員模組；與 SNMP Exporter 官方標準模組合併。
+- `configs/grafana-alerts-stable.yaml`：安裝器使用的九條告警；`configs/grafana-alerts.yaml` 保持相同內容。
+- `configs/grafana-notification-template.tmpl`：繁體中文通知與恢復模板，時間使用 Asia/Taipei。
+- `grafana/TrueNAS_Hybrid_Cloud.json`：十面板；沿用已確認正常的 hrStorage 根掛載點容量查詢。
+- [面板數值說明](docs/dashboard-panels.md)。
 
-19:35 的後續截圖已顯示兩站綜合健康與採集正常；此畫面不單獨證明硬碟替換或 resilver 已完成。本版另修正容量口徑，需更新兩站的 zfs_capacity 命令與監控 VM 的模組，再匯入新版面板。
+先前的 `deploy-zfs-capacity.py`、`deploy-zfs-members.py`、`configure-truenas-snmp.py` 與 `snmp-zfs-modules.yml` 保留為歷史排錯工具／設定，並非這份從零安裝流程的步驟；不要把它們再套在本流程後面。
 
-- [部署步驟與技術文件修訂](docs/zfs-failure-test.md)
-- [十個面板用途與狀態對照](docs/dashboard-panels.md)
-- [可直接匯入的 Grafana JSON](grafana/TrueNAS_Hybrid_Cloud.json)
-- [成員與容量增量部署腳本](scripts/deploy-zfs-members.py)
-- [SNMP ZFS 模組參考設定](configs/snmp-zfs-modules.yml)
-- [完整九條告警規則](configs/grafana-alerts.yaml)
-- [僅新增兩條成員告警](configs/grafana-zfs-members.yaml)
-- [繁體中文通知模板原始碼](configs/grafana-notification-template.tmpl)
+## 固定版本與驗證範圍
 
-現有監控 VM 使用增量部署流程，不要重跑 install.sh；該安裝腳本會重新產生 Cloud Sync Token。完整九條規則與分開部署的規則檔不能同時載入相同 UID。
+SNMP Exporter 0.26.0、Prometheus 2.54.1、Grafana 13.2.4。前兩者下載檔使用官方 SHA256 清單驗證；Tailscale 與 AWS CLI v2 從官方管道安裝。
 
-| 目錄／檔案 | 用途 |
-|---|---|
-| exporters/s3_realtime_exporter.py | S3 清單容量與月費估算，9107 |
-| exporters/cloudsync_success_receiver.py | Cloud Sync 成功回報與指標，9108 |
-| systemd/ | 監控服務單元 |
-| configs/prometheus.yml | 四個採集工作；truenas_snmp 包含 truenas_zfs |
-| configs/grafana-datasource.yaml | Prometheus UID cg15oru9k9clcd |
-| grafana/ | 十面板 JSON；舊無副檔名路徑保留為相同新版內容 |
-| aws-iam/ | S3 唯讀監控政策 |
-| tests/ | PromQL 狀態測試與 SNMP 文字解析測試 |
+```bash
+python3 -m unittest discover -s tests -p 'test_setup_monitoring.py'
+```
 
-本次監控修正僅讀取 ZFS 狀態，不執行 offline、clear、replace 或 scrub。憑證、Token、Webhook 與密碼不應提交到儲存庫。
+已測試設定產生、容量查詢來源、九條唯一告警 UID、一分鐘評估週期、雙通知與秘密檔權限；已實際啟動 Grafana 13.2.4 驗證載入九條告警、十面板與 Email／Discord 聯絡點。未聲稱已在全新 Rocky VM 完成整套系統級安裝測試；實際 Cloud Sync 與通知收訊須依教學驗收。
+
+禁止上傳 `/root/monitoring-setup.json`、AWS 憑證、Gmail App Password、Discord Webhook 或 Receiver Token。
