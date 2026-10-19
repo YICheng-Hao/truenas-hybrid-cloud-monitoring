@@ -40,7 +40,7 @@ groups:
             params:
             - 1
   - uid: alert_zfs_pool_cap_high
-    title: ZFS 實體配置比例超過 85%
+    title: ZFS 資料空間使用率超過 85%
     condition: C
     for: 5m
     noDataState: NoData
@@ -52,7 +52,8 @@ groups:
         to: 0
       datasourceUid: cg15oru9k9clcd
       model:
-        expr: zfsDataPoolUsedPercent{job="truenas_snmp"}
+        expr: 100 * zfsUsablePoolUsedBytes{job="truenas_snmp"} / (zfsUsablePoolUsedBytes{job="truenas_snmp"}
+          + zfsUsablePoolAvailableBytes{job="truenas_snmp"})
         instant: true
         refId: A
     - refId: B
@@ -74,8 +75,8 @@ groups:
             params:
             - 85
     annotations:
-      summary: ZFS 實體配置比例超過 85%
-      description: 此數值來自 zpool list CAP，包含 RAID-Z 同位元及中繼資料，不等於 SMB 可用容量。
+      summary: ZFS 資料空間使用率超過 85%
+      description: 來源為池根資料集 USED／(USED＋AVAILABLE)。包含子資料集與快照用量；不同配額與保留空間設定會影響 AVAILABLE。
   - uid: alert_zfs_repl_drift
     title: 主備站已用空間差異超過 10 GiB（僅供參考）
     condition: C

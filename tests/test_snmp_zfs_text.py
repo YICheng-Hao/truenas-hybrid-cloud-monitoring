@@ -30,14 +30,17 @@ class SnmpTextContract(unittest.TestCase):
         for text in ['', 'cannot open /dev/zfs: Permission denied', 'No Such Instance']:
             self.assertEqual(extract('zfsMemberFault', '', text), 2)
 
-    def test_capacity_ignores_boot_pool(self):
+    def test_capacity_uses_root_and_does_not_sum_children(self):
         for pool in ['mainpool','backuppool']:
-            text = f'boot-pool\t100\t10\t90\t10\n{pool}\t3000\t200\t2800\t6\n'
-            for suffix, expected in [('SizeBytes',3000),('AllocatedBytes',200),('FreeBytes',2800),('UsedPercent',6)]:
-                self.assertEqual(extract('zfsDataPool', suffix, text), expected)
+            text = f'boot-pool\t100\t900\n{pool}\t200\t1800\n{pool}/data\t190\t1800\n'
+            for suffix, expected in [('UsedBytes',200),('AvailableBytes',1800)]:
+                self.assertEqual(extract('zfsUsablePool', suffix, text), expected)
 
     def test_missing_capacity_stays_missing(self):
-        self.assertIsNone(extract('zfsDataPool','SizeBytes','No Such Instance'))
+        self.assertIsNone(extract('zfsUsablePool','UsedBytes','No Such Instance'))
+
+    def test_old_raw_pool_columns_are_not_accepted(self):
+        self.assertIsNone(extract('zfsUsablePool','UsedBytes','mainpool\t3000\t200\t2800\t6\n'))
 
 if __name__ == '__main__':
     unittest.main()

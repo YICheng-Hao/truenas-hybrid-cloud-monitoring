@@ -2,9 +2,15 @@
 
 本專案收納 TrueNAS A／B、AWS S3、Prometheus 與 Grafana 的監控程式及第七、八章操作設定。
 
+從零開始重建 Rocky Linux 9 監控 VM，請依 [完整建置指南](docs/monitoring-vm-from-zero.md) 的 7.1～7.12 順序操作。指南已彙整套件、Tailscale、兩站 SNMP、S3 IAM、Receiver Token、Prometheus、Grafana、九條告警、十面板及雙管道通知驗證。
+
+容量已修正為 zfs list 的池根資料集 USED／AVAILABLE，總資料空間為兩者相加。舊版約 3 TB 是含 RAID-Z2 同位元空間的原始磁碟總量，不再用來代表可用資料容量。TrueNAS 的 extend zfs_capacity 命令也必須一併更新，詳見指南 7.3。
+
 ## 2026-10-19 成員故障監控修正
 
 實測出現「mainpool 整體仍 ONLINE，但兩顆成員磁碟已 FAULTED」。單靠 zpoolHealthStr 會漏報，因此加入 SNMP extend 成員狀態採集。使用者截圖確認 A 站指標為 1，Discord 收到成員異常通知；B 站則收到成員狀態無法取得通知。尚未確認 Email、磁碟更換及重建完成。
+
+19:35 的後續截圖已顯示兩站綜合健康與採集正常；此畫面不單獨證明硬碟替換或 resilver 已完成。本版另修正容量口徑，需更新兩站的 zfs_capacity 命令與監控 VM 的模組，再匯入新版面板。
 
 - [部署步驟與技術文件修訂](docs/zfs-failure-test.md)
 - [十個面板用途與狀態對照](docs/dashboard-panels.md)

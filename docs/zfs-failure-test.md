@@ -12,7 +12,7 @@
 
 ```text
 extend zfs /usr/sbin/zpool status -P
-extend zfs_capacity /usr/sbin/zpool list -Hp -o name,size,alloc,free,cap
+extend zfs_capacity /usr/sbin/zfs list -Hp -o name,used,available
 ```
 
 儲存後，關閉再開啟該站 SNMP 服務。不要直接編輯由 TrueNAS 產生的 snmpd.conf。兩條指令只讀取狀態，不變更池配置。
@@ -28,7 +28,7 @@ for NAS_TS_IP in 100.114.236.88 100.113.107.95; do
 done
 ```
 
-第一項應有完整成員表，第二項應有資料池名稱與四個數值。No Such Instance 表示對應 extend 未生效，不代表磁碟正常。查詢 IP 必須與實際修改的 TrueNAS 相同。
+第一項應有完整成員表，第二項應有資料池根資料集名稱與 USED、AVAILABLE 兩個數值。No Such Instance 表示對應 extend 未生效，不代表磁碟正常。查詢 IP 必須與實際修改的 TrueNAS 相同。
 
 ## 7.2 更新現有監控 VM
 
@@ -45,9 +45,9 @@ python3 /root/deploy-zfs-members.py
 )
 ```
 
-腳本備份 SNMP、Prometheus 與自己的成員告警檔，補入 truenas_zfs 指標，保留其他 SNMP 模組與實機 Prometheus 目標，新增兩條成員規則。會執行 Exporter dry-run、promtool、A 站指標檢查與 Grafana 啟動健康檢查。失敗時還原三份設定並重新啟動服務。備份位置為 /root/zfs-member-backup-時間戳記。
+腳本備份 SNMP、Prometheus 及現有告警 provisioning 檔，補入 truenas_zfs 指標，保留其他 SNMP 模組與實機 Prometheus 目標，新增兩條成員規則。會執行 Exporter dry-run、promtool、A 站指標檢查與 Grafana 啟動健康檢查。失敗時還原備份設定並重新啟動服務。備份位置為 /root/zfs-member-backup-時間戳記。
 
-增量腳本不改寫 Dashboard、通知模板、通知政策或其他既有規則。現有 4＋3＋2 條可繼續分檔載入，不要再額外載入整合九條的 configs/grafana-alerts.yaml。全新部署可選整合檔，但不能再同時載入相同 UID 的分檔規則。整合檔容量門檻採新版池實體配置比例；增量腳本不會替換現有容量門檻規則。
+增量腳本不改寫 Dashboard、通知模板或通知政策；會將既有 UID alert_zfs_pool_cap_high 的容量規則更新成 USED／(USED＋AVAILABLE)。現有 4＋3＋2 條可繼續分檔載入，不要再額外載入整合九條的 configs/grafana-alerts.yaml。全新部署可選整合檔，但不能再同時載入相同 UID 的分檔規則。整合檔與增量更新均以根資料集 USED／(USED＋AVAILABLE) 判斷容量門檻。
 
 新增檔案為 /etc/grafana/provisioning/alerting/zfs-member-alerts.yaml，群組 zfs_members_1m。每分鐘評估；故障 Pending 0 秒、資料缺失 Pending 2 分鐘。傳送時間另受通知政策 group_wait／group_interval 影響，不能將 Pending 0 秒稱為零延遲。
 
@@ -56,10 +56,10 @@ python3 /root/deploy-zfs-members.py
 | zpoolHealthStr | TrueNAS 原生池健康字串 |
 | zfsMemberFault | 0：正常表格；1：表格列含 DEGRADED／FAULTED／UNAVAIL／OFFLINE／REMOVED／SUSPENDED；2：無法辨識輸出 |
 | zfsStatusCommandExit | zpool status 退出碼；0 才能採信成員結果 |
-| zfsDataPoolSizeBytes | 資料池實體總容量 |
-| zfsDataPoolAllocatedBytes | 已配置實體空間 |
-| zfsDataPoolFreeBytes | 未配置實體空間 |
-| zfsDataPoolUsedPercent | zpool list CAP 百分比 |
+| zfsUsablePoolUsedBytes | 池根資料集 USED，包含子資料集與快照 |
+| zfsUsablePoolAvailableBytes | 池根資料集 AVAILABLE，反映尚可使用的資料空間 |
+
+面板總資料空間＝USED＋AVAILABLE，不再以含 parity 的 zpool SIZE 表示資料可用容量。
 
 成員指標為主機層級，不帶個別磁碟／池標籤，故障定位仍需 zpool status -P。容量解析預設每站僅有一個 mainpool 或 backuppool；同站有多個相符池時，需改為逐池指標。
 
@@ -79,7 +79,7 @@ GitHub JSON 更新不會自動更新 Grafana 資料庫。Dashboard、告警 prov
 | 規則 | Pending | 意義 |
 |---|---|---|
 | 節點／S3 監控離線 | 2m | 採集或 S3 查詢失敗 |
-| 容量超標 | 5m | 新版整合檔為池實體配置 >85% |
+| 容量超標 | 5m | 根資料集 USED／(USED＋AVAILABLE) >85% |
 | 兩站已用空間差異 | 15m | 舊有參考規則；差異不等於複寫失敗 |
 | Cloud Sync 成功回報逾時 | 5m | task_id=1 超過 28 小時未回報成功 |
 | 原生池 DEGRADED | 1m | 池字串為 DEGRADED |
@@ -106,6 +106,10 @@ RAID-Z2 每個 VDEV 容忍兩顆資料碟故障；雙系統碟 Mirror 僅容忍�
 
 ## 驗證紀錄
 
-使用者截圖確認 A 站 zfsMemberFault=1、zfsStatusCommandExit=0，Discord 收到成員異常；B 站收到成員資料缺失，因此仍需完成／驗證 B 的 extend。未宣稱 Email、硬碟替換、resilver 或還原通過。
+先前截圖確認 A 站 zfsMemberFault=1、zfsStatusCommandExit=0，Discord 收到成員異常；B 站當時收到成員資料缺失。19:35 後續截圖已顯示兩站綜合健康與採集正常。未宣稱 Email、硬碟替換、resilver 或還原通過。
 
 新版容量與 Dashboard 已進行 SNMP Exporter 0.26.0 dry-run、PromQL 語法及合成狀態測試；仍需實機啟用 zfs_capacity、更新腳本並匯入面板。測試不操作實際磁碟。
+
+## 從零重建
+
+完整的新 VM 建置順序與設定彙整，見 [monitoring-vm-from-zero.md](monitoring-vm-from-zero.md)。新主機只載入整合九條規則；容量使用 zfs 根資料集 USED／AVAILABLE，額外考量 quota、reservation 與 ZFS 保留空間。

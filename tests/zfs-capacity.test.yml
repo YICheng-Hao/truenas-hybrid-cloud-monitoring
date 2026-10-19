@@ -1,0 +1,15 @@
+rule_files:
+- zfs-capacity.rules.yml
+tests:
+- input_series:
+  - series: zfsUsablePoolUsedBytes{job="truenas_snmp",instance="100.114.236.88"}
+    values: '100'
+  - series: zfsUsablePoolAvailableBytes{job="truenas_snmp",instance="100.114.236.88"}
+    values: '1900'
+  interval: 1m
+  promql_expr_test:
+  - eval_time: 0m
+    exp_samples:
+    - labels: zfs_data_used_percent{job="truenas_snmp",instance="100.114.236.88"}
+      value: 5
+    expr: zfs_data_used_percent

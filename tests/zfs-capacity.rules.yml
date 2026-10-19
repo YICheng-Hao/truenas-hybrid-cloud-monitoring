@@ -1,0 +1,6 @@
+groups:
+- name: capacity
+  rules:
+  - expr: 100 * zfsUsablePoolUsedBytes{job="truenas_snmp"} / (zfsUsablePoolUsedBytes{job="truenas_snmp"}
+      + zfsUsablePoolAvailableBytes{job="truenas_snmp"})
+    record: zfs_data_used_percent

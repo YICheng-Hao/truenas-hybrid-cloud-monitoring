@@ -15,7 +15,7 @@
       }
     ]
   },
-  "description": "10 個面板。綜合健康同時檢查原生池狀態與 SNMP extend 成員狀態；容量使用 zpool list 的實體配置值。2026-10-19 成員故障整合版。",
+  "description": "10 個面板。健康同時檢查池與成員；容量使用 zfs list 池根資料集 USED／AVAILABLE，總資料空間為兩者相加，不再顯示含 parity 的原始磁碟總量。",
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
@@ -350,7 +350,7 @@
         "type": "prometheus",
         "uid": "${DS_PROMETHEUS}"
       },
-      "description": "來源為 zpool list -Hp -o name,size,alloc,free,cap。包含 RAID-Z 同位元與中繼資料；總容量是池實體配置容量，不等於扣除 RAID-Z2 後可供 SMB 使用的容量。不再將根資料集的 384 KiB 誤稱整池用量。需兩站啟用 extend zfs_capacity。",
+      "description": "來源為 zfs list -Hp -o name,used,available 的池根資料集。已使用包含子資料集、快照及保留空間；目前可用反映 ZFS 的資料可用空間，兩者相加為本面板總資料空間。不是含 parity 的 zpool SIZE，也不保證等於個別 SMB 資料集有配額時的可用額度。",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -380,7 +380,7 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "已配置"
+              "options": "已使用"
             },
             "properties": [
               {
@@ -395,7 +395,7 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "未配置"
+              "options": "目前可用"
             },
             "properties": [
               {
@@ -410,7 +410,7 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "實體總量"
+              "options": "總資料空間"
             },
             "properties": [
               {
@@ -467,9 +467,9 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "zfsDataPoolAllocatedBytes{job=\"truenas_snmp\",instance=\"100.114.236.88\"}",
+          "expr": "zfsUsablePoolUsedBytes{job=\"truenas_snmp\",instance=\"100.114.236.88\"}",
           "instant": true,
-          "legendFormat": "已配置",
+          "legendFormat": "已使用",
           "range": false,
           "refId": "A"
         },
@@ -479,9 +479,9 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "zfsDataPoolFreeBytes{job=\"truenas_snmp\",instance=\"100.114.236.88\"}",
+          "expr": "zfsUsablePoolAvailableBytes{job=\"truenas_snmp\",instance=\"100.114.236.88\"}",
           "instant": true,
-          "legendFormat": "未配置",
+          "legendFormat": "目前可用",
           "range": false,
           "refId": "B"
         },
@@ -491,14 +491,14 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "zfsDataPoolSizeBytes{job=\"truenas_snmp\",instance=\"100.114.236.88\"}",
+          "expr": "(zfsUsablePoolUsedBytes{job=\"truenas_snmp\",instance=\"100.114.236.88\"} + zfsUsablePoolAvailableBytes{job=\"truenas_snmp\",instance=\"100.114.236.88\"})",
           "instant": true,
-          "legendFormat": "實體總量",
+          "legendFormat": "總資料空間",
           "range": false,
           "refId": "C"
         }
       ],
-      "title": "A 站 ZFS 實體配置容量",
+      "title": "A 站 ZFS 資料空間（RAID-Z2）",
       "type": "bargauge"
     },
     {
@@ -506,7 +506,7 @@
         "type": "prometheus",
         "uid": "${DS_PROMETHEUS}"
       },
-      "description": "來源為 zpool list -Hp -o name,size,alloc,free,cap。包含 RAID-Z 同位元與中繼資料；總容量是池實體配置容量，不等於扣除 RAID-Z2 後可供 SMB 使用的容量。不再將根資料集的 384 KiB 誤稱整池用量。需兩站啟用 extend zfs_capacity。",
+      "description": "來源為 zfs list -Hp -o name,used,available 的池根資料集。已使用包含子資料集、快照及保留空間；目前可用反映 ZFS 的資料可用空間，兩者相加為本面板總資料空間。不是含 parity 的 zpool SIZE，也不保證等於個別 SMB 資料集有配額時的可用額度。",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -536,7 +536,7 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "已配置"
+              "options": "已使用"
             },
             "properties": [
               {
@@ -551,7 +551,7 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "未配置"
+              "options": "目前可用"
             },
             "properties": [
               {
@@ -566,7 +566,7 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "實體總量"
+              "options": "總資料空間"
             },
             "properties": [
               {
@@ -623,9 +623,9 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "zfsDataPoolAllocatedBytes{job=\"truenas_snmp\",instance=\"100.113.107.95\"}",
+          "expr": "zfsUsablePoolUsedBytes{job=\"truenas_snmp\",instance=\"100.113.107.95\"}",
           "instant": true,
-          "legendFormat": "已配置",
+          "legendFormat": "已使用",
           "range": false,
           "refId": "A"
         },
@@ -635,9 +635,9 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "zfsDataPoolFreeBytes{job=\"truenas_snmp\",instance=\"100.113.107.95\"}",
+          "expr": "zfsUsablePoolAvailableBytes{job=\"truenas_snmp\",instance=\"100.113.107.95\"}",
           "instant": true,
-          "legendFormat": "未配置",
+          "legendFormat": "目前可用",
           "range": false,
           "refId": "B"
         },
@@ -647,14 +647,14 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "zfsDataPoolSizeBytes{job=\"truenas_snmp\",instance=\"100.113.107.95\"}",
+          "expr": "(zfsUsablePoolUsedBytes{job=\"truenas_snmp\",instance=\"100.113.107.95\"} + zfsUsablePoolAvailableBytes{job=\"truenas_snmp\",instance=\"100.113.107.95\"})",
           "instant": true,
-          "legendFormat": "實體總量",
+          "legendFormat": "總資料空間",
           "range": false,
           "refId": "C"
         }
       ],
-      "title": "B 站 ZFS 實體配置容量",
+      "title": "B 站 ZFS 資料空間（RAID-Z2）",
       "type": "bargauge"
     },
     {
@@ -1268,7 +1268,7 @@
   "timezone": "Asia/Taipei",
   "title": "TrueNAS 混合雲｜ZFS 成員・容量・備份監控",
   "uid": "truenas321-capacity-cloudsync-vm",
-  "version": 2,
+  "version": 3,
   "weekStart": "",
   "__inputs": [
     {

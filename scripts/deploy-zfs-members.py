@@ -9,6 +9,8 @@ alert = Path('/etc/grafana/provisioning/alerting/zfs-member-alerts.yaml')
 backup = Path('/root/zfs-member-backup-' + datetime.now().strftime('%Y%m%d-%H%M%S-%f'))
 backup.mkdir(mode=0o700)
 paths = [snmp, prom, alert]
+paths += [p for p in alert.parent.iterdir()
+          if p != alert and p.suffix in ('.yaml', '.yml')]
 for i, path in enumerate(paths):
     if path.exists():
         shutil.copy2(path, backup / str(i))
@@ -32,7 +34,7 @@ def build():
             module['get'].append(oid)
     metrics = module.setdefault('metrics', [])
     metrics[:] = [m for m in metrics if m['name'] not in (
-        'zfsMemberFault', 'zfsStatusCommandExit', 'zfsDataPool', 'zpoolHealth', 'zpoolHealthStr')]
+        'zfsMemberFault', 'zfsStatusCommandExit', 'zfsDataPool', 'zfsUsablePool', 'zpoolHealth', 'zpoolHealthStr')]
     metrics.extend([
         {'name': 'zpoolHealthStr', 'oid': '1.3.6.1.4.1.50536.1.1.1.1.3', 'type': 'DisplayString',
          'help': 'TrueNAS reported pool health string',
@@ -48,13 +50,13 @@ def build():
         {'name': 'zfsStatusCommandExit', 'oid': result_oid, 'type': 'gauge',
          'help': 'Exit status of the SNMP extend zpool command; zero means success'}
     ])
-    # One expected data pool per node. These are physical zpool allocation figures,
-    # including parity/metadata, rather than a dataset's SMB-available capacity.
-    row = r'(?s).*\b(?:mainpool|backuppool)[ \t]+([0-9]+)[ \t]+([0-9]+)[ \t]+([0-9]+)[ \t]+([0-9.]+)%?[^\n]*(?:\n.*)?'
-    metrics.append({'name': 'zfsDataPool', 'oid': capacity_oid, 'type': 'DisplayString',
-        'help': 'Expected data pool physical allocation from zpool list -Hp',
+    # One expected pool-root dataset per node. USED includes descendants/snapshots;
+    # AVAILABLE is the data space still available, rather than raw zpool FREE.
+    row = r'(?s).*(?:^|\n)(?:mainpool|backuppool)[ \t]+([0-9]+)[ \t]+([0-9]+)[ \t]*(?:\n.*)?'
+    metrics.append({'name': 'zfsUsablePool', 'oid': capacity_oid, 'type': 'DisplayString',
+        'help': 'Expected pool-root dataset space from zfs list -Hp -o name,used,available',
         'regex_extracts': {suffix: [{'regex': row, 'value': '$' + str(i)}]
-            for i, suffix in enumerate(['SizeBytes', 'AllocatedBytes', 'FreeBytes', 'UsedPercent'], 1)}})
+            for i, suffix in enumerate(['UsedBytes', 'AvailableBytes'], 1)}})
     pc = yaml.safe_load(prom.read_text())
     jobs = [j for j in pc['scrape_configs'] if j['job_name'] == 'truenas_snmp']
     if len(jobs) != 1:
@@ -92,13 +94,35 @@ try:
         raise RuntimeError('A site did not return zfsMemberFault; changes will be rolled back')
     if not re.search(r'^zfsStatusCommandExit(?:\{[^\n]*\})? 0(?:\.0)?$', live, re.M):
         raise RuntimeError('A site zpool command failed; changes will be rolled back')
-    print('\n'.join(line for line in live.splitlines() if line.startswith(('zfsMemberFault', 'zfsStatusCommandExit', 'zfsDataPool'))))
-    if 'zfsDataPoolSizeBytes ' not in live:
-        print('提醒：A 站尚未回傳池容量，請確認 extend zfs_capacity 已生效。')
+    print('\n'.join(line for line in live.splitlines() if line.startswith(('zfsMemberFault', 'zfsStatusCommandExit', 'zfsUsablePool'))))
+    if 'zfsUsablePoolUsedBytes ' not in live:
+        print('提醒：A 站尚未回傳可用資料容量，請將 extend zfs_capacity 改為 zfs list -Hp -o name,used,available。')
     prom.write_text(yaml.safe_dump(pc, sort_keys=False, allow_unicode=True))
     run('/usr/local/bin/promtool', 'check', 'config', str(prom))
-    alert.write_text(json.dumps(ac, ensure_ascii=False, indent=2) + '\n')
-    alert.chmod(0o644)
+    for existing in paths[3:]:
+        current = yaml.safe_load(existing.read_text())
+        changed = False
+        for group in (current or {}).get('groups', []):
+            for rule in group.get('rules', []):
+                if rule.get('uid') == 'alert_zfs_pool_cap_high':
+                    rule['title'] = 'ZFS 資料空間使用率超過 85%'
+                    rule['data'][0]['model']['expr'] = '100 * zfsUsablePoolUsedBytes{job="truenas_snmp"} / (zfsUsablePoolUsedBytes{job="truenas_snmp"} + zfsUsablePoolAvailableBytes{job="truenas_snmp"})'
+                    rule['annotations'] = {'summary': 'ZFS 資料空間使用率超過 85%', 'description': '來源為池根資料集 USED／(USED＋AVAILABLE)，包含子資料集與快照；AVAILABLE 受配額與保留空間影響。'}
+                    changed = True
+        if changed:
+            existing.write_text(yaml.safe_dump(current, sort_keys=False, allow_unicode=True))
+    # Fresh installs can load the consolidated nine-rule file. Do not provision
+    # the same UIDs again through this incremental file.
+    member_uids = {rule['uid'] for group in ac['groups'] for rule in group['rules']}
+    elsewhere = [p for p in alert.parent.iterdir() if p != alert and p.suffix in ('.yaml', '.yml')
+                 and any(uid in p.read_text() for uid in member_uids)]
+    if elsewhere:
+        if alert.exists():
+            raise RuntimeError('Duplicate member rule UIDs exist in another provisioning file; no changes retained')
+        print('成員規則已包含於既有整合檔，本次僅更新採集設定。')
+    else:
+        alert.write_text(json.dumps(ac, ensure_ascii=False, indent=2) + '\n')
+        alert.chmod(0o644)
     run('systemctl', 'restart', 'prometheus', 'grafana-server')
     for attempt in range(30):
         try:
@@ -110,7 +134,7 @@ try:
         time.sleep(1)
     else:
         raise RuntimeError('Grafana failed its health check')
-    print('套用完成：新增兩條成員監測規則。備份：' + str(backup))
+    print('套用完成：成員與可用容量採集已更新。備份：' + str(backup))
 except Exception:
     for i, path in enumerate(paths):
         saved = backup / str(i)
@@ -119,5 +143,5 @@ except Exception:
         elif path == alert:
             path.unlink(missing_ok=True)
     subprocess.run(['systemctl', 'restart', 'snmp_exporter', 'prometheus', 'grafana-server'])
-    print('套用失敗，已還原原有三份設定。備份：' + str(backup))
+    print('套用失敗，已還原備份的採集與告警設定。備份：' + str(backup))
     raise

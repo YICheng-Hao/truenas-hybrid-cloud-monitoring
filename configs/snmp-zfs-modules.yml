@@ -33,27 +33,19 @@ modules:
       oid: 1.3.6.1.4.1.8072.1.3.2.3.1.4.3.122.102.115
       type: gauge
       help: Exit status of the SNMP extend zpool command; zero means success
-    - name: zfsDataPool
+    - name: zfsUsablePool
       oid: 1.3.6.1.4.1.8072.1.3.2.3.1.2.12.122.102.115.95.99.97.112.97.99.105.116.121
       type: DisplayString
-      help: Expected data pool physical allocation from zpool list -Hp
+      help: Expected pool-root dataset space from zfs list -Hp -o name,used,available
       regex_extracts:
-        SizeBytes:
-        - regex: (?s).*\b(?:mainpool|backuppool)[ \t]+([0-9]+)[ \t]+([0-9]+)[ \t]+([0-9]+)[
-            \t]+([0-9.]+)%?[^\n]*(?:\n.*)?
+        UsedBytes:
+        - regex: (?s).*(?:^|\n)(?:mainpool|backuppool)[ \t]+([0-9]+)[ \t]+([0-9]+)[
+            \t]*(?:\n.*)?
           value: $1
-        AllocatedBytes:
-        - regex: (?s).*\b(?:mainpool|backuppool)[ \t]+([0-9]+)[ \t]+([0-9]+)[ \t]+([0-9]+)[
-            \t]+([0-9.]+)%?[^\n]*(?:\n.*)?
+        AvailableBytes:
+        - regex: (?s).*(?:^|\n)(?:mainpool|backuppool)[ \t]+([0-9]+)[ \t]+([0-9]+)[
+            \t]*(?:\n.*)?
           value: $2
-        FreeBytes:
-        - regex: (?s).*\b(?:mainpool|backuppool)[ \t]+([0-9]+)[ \t]+([0-9]+)[ \t]+([0-9]+)[
-            \t]+([0-9.]+)%?[^\n]*(?:\n.*)?
-          value: $3
-        UsedPercent:
-        - regex: (?s).*\b(?:mainpool|backuppool)[ \t]+([0-9]+)[ \t]+([0-9]+)[ \t]+([0-9]+)[
-            \t]+([0-9.]+)%?[^\n]*(?:\n.*)?
-          value: $4
     get:
     - 1.3.6.1.4.1.8072.1.3.2.3.1.2.3.122.102.115
     - 1.3.6.1.4.1.8072.1.3.2.3.1.4.3.122.102.115
