@@ -1,0 +1,41 @@
+test_running_executable_is_replaced_atomically (test_binary_reinstall.BinaryReinstall.test_running_executable_is_replaced_atomically) ... ok
+test_empty_bucket (test_exporter_inputs.Inventory.test_empty_bucket) ... ok
+test_empty_output (test_exporter_inputs.Inventory.test_empty_output) ... S3 inventory failed: AWS CLI summary is missing or invalid
+ok
+test_good (test_exporter_inputs.Inventory.test_good) ... ok
+test_malformed (test_exporter_inputs.Inventory.test_malformed) ... S3 inventory failed: invalid literal for int() with base 10: 'abc'
+ok
+test_negative (test_exporter_inputs.Inventory.test_negative) ... S3 inventory failed: AWS CLI summary is missing or invalid
+ok
+test_nonzero (test_exporter_inputs.Inventory.test_nonzero) ... S3 inventory failed: failed
+ok
+test_invalid_task (test_exporter_inputs.Receiver.test_invalid_task) ... ok
+test_invalid_utf8 (test_exporter_inputs.Receiver.test_invalid_utf8) ... ok
+test_malformed_form (test_exporter_inputs.Receiver.test_malformed_form) ... ok
+test_no_body (test_exporter_inputs.Receiver.test_no_body) ... ok
+test_valid (test_exporter_inputs.Receiver.test_valid) ... ok
+test_wrong_token (test_exporter_inputs.Receiver.test_wrong_token) ... ok
+test_all_nine_evaluated (test_grafana_verification.Verification.test_all_nine_evaluated) ... Grafana：資料源正常；九條規則已實際評估，沒有評估錯誤
+ok
+test_datasource_error_rejected (test_grafana_verification.Verification.test_datasource_error_rejected) ... ok
+test_loaded_but_evaluation_error_rejected (test_grafana_verification.Verification.test_loaded_but_evaluation_error_rejected) ... ok
+test_capacity_is_stable (test_setup_monitoring.SetupContract.test_capacity_is_stable) ... ok
+test_dual_notification_and_recovery (test_setup_monitoring.SetupContract.test_dual_notification_and_recovery) ... ok
+test_nine_rules_and_correct_ids (test_setup_monitoring.SetupContract.test_nine_rules_and_correct_ids) ... ok
+test_no_extra_capacity_dependency (test_setup_monitoring.SetupContract.test_no_extra_capacity_dependency) ... ok
+test_private_file_modes (test_setup_monitoring.SetupContract.test_private_file_modes) ... ok
+test_receiver_token_is_passed_not_rotated (test_setup_monitoring.SetupContract.test_receiver_token_is_passed_not_rotated) ... ok
+test_reject_placeholder (test_setup_monitoring.SetupContract.test_reject_placeholder) ... ok
+test_supported_rocky_versions (test_setup_monitoring.SetupContract.test_supported_rocky_versions) ... ok
+test_capacity_uses_root_and_does_not_sum_children (test_snmp_zfs_text.SnmpTextContract.test_capacity_uses_root_and_does_not_sum_children) ... ok
+test_errors_are_not_healthy (test_snmp_zfs_text.SnmpTextContract.test_errors_are_not_healthy) ... ok
+test_missing_capacity_stays_missing (test_snmp_zfs_text.SnmpTextContract.test_missing_capacity_stays_missing) ... ok
+test_non_online_rows (test_snmp_zfs_text.SnmpTextContract.test_non_online_rows) ... ok
+test_old_raw_pool_columns_are_not_accepted (test_snmp_zfs_text.SnmpTextContract.test_old_raw_pool_columns_are_not_accepted) ... ok
+test_online_pool_with_faulted_leaf (test_snmp_zfs_text.SnmpTextContract.test_online_pool_with_faulted_leaf) ... ok
+test_valid_online (test_snmp_zfs_text.SnmpTextContract.test_valid_online) ... ok
+
+----------------------------------------------------------------------
+Ran 31 tests in 4.905s
+
+OK

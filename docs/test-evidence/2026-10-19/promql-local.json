@@ -1,0 +1,10 @@
+{
+  "runs": 1,
+  "cases": {
+    "zfs-health.test.yml": 7,
+    "zfs-capacity.test.yml": 1,
+    "zfs-members.test.yml": 9
+  },
+  "result": "all passed",
+  "promtool_version": "2.54.1"
+}

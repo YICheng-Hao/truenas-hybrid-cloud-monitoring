@@ -1,0 +1,3 @@
+PASS ONLINE ONLINE capacity, network, native health, member status
+PASS ONLINE OFFLINE capacity, network, native health, member status
+PASS DEGRADED OFFLINE capacity, network, native health, member status
