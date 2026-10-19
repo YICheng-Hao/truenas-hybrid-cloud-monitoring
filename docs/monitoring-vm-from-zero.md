@@ -2,6 +2,8 @@
 
 本文件使用 2026-10-19 已確認正常的 hrStorage 容量查詢。適用於全新監測 VM；目前正常運作的 VM 不需要重建。安裝器偵測到非本安裝器建立的既有 Prometheus／Grafana 設定時會停止，避免覆寫。
 
+2026-10-20 已在 Rocky 9.8／10.2 隔離 VM 完成建置、故障／恢復通知、重跑與重新開機驗證；測試輪數及外部服務替身範圍見 [測試報告](installation-test-report.md)。
+
 ## 1. 建立 VM 與準備資料
 
 在 VMware 建立 Rocky Linux 9／10 x86_64 VM，建議 2 vCPU、4 GiB RAM、40 GiB 系統碟，設定管理 IP、預設閘道與 DNS。下列命令以 root 執行；以一般管理帳號登入後執行 `sudo -i` 即可，不必開放 root SSH 登入。

@@ -1,0 +1,11 @@
+[
+  {
+    "round": 1,
+    "os_major": "10",
+    "accelerator": "kvm",
+    "fresh_install": true,
+    "fault_and_recovery": true,
+    "reinstall_preserves_state": true,
+    "reboot": true
+  }
+]

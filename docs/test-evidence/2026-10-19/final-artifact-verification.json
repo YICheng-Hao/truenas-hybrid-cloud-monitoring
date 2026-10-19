@@ -1,0 +1,20 @@
+[
+  {
+    "major": "10",
+    "accelerator": "kvm",
+    "fresh_fault_reinstall_reboot": true,
+    "full_assertions": 34,
+    "after_reboot_assertions": 18,
+    "zip_sha256_verified": true,
+    "artifact_id": 12211383061
+  },
+  {
+    "major": "9",
+    "accelerator": "kvm",
+    "fresh_fault_reinstall_reboot": true,
+    "full_assertions": 34,
+    "after_reboot_assertions": 18,
+    "zip_sha256_verified": true,
+    "artifact_id": 12210842148
+  }
+]

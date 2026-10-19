@@ -1,0 +1,76 @@
+Warning: Permanently added '[127.0.0.1]:2222' (ED25519) to the list of known hosts.
+沿用既有輸入檔：/root/monitoring-setup.json
+[1/6] 安裝套件、校時與 Tailscale
+Last metadata expiration check: 0:07:42 ago on Tue 20 Oct 2026 02:08:53 AM CST.
+Package dnf-plugins-core-4.7.0-10.el10.noarch is already installed.
+Package curl-8.12.1-4.el10_2.7.x86_64 is already installed.
+Package git-2.52.0-1.el10.x86_64 is already installed.
+Package tar-2:1.35-13.el10_2.x86_64 is already installed.
+Package gzip-1.13-4.el10_2.x86_64 is already installed.
+Package unzip-6.0-69.el10.x86_64 is already installed.
+Package jq-1.7.1-11.el10_2.2.x86_64 is already installed.
+Package python3-pyyaml-6.0.1-19.el10.x86_64 is already installed.
+Package net-snmp-utils-1:5.9.4-19.el10.x86_64 is already installed.
+Package chrony-4.8-2.el10.x86_64 is already installed.
+Package firewalld-2.4.3-4.el10_2.noarch is already installed.
+Dependencies resolved.
+Nothing to do.
+Complete!
+[2/6] 安裝監控主程式與 Grafana
+grafana                                          12 kB/s | 810  B     00:00    
+Package grafana-13.2.4-1.x86_64 is already installed.
+Dependencies resolved.
+Nothing to do.
+Complete!
+下載：https://github.com/prometheus/snmp_exporter/releases/download/v0.26.0/snmp_exporter-0.26.0.linux-amd64.tar.gz
+下載：https://github.com/prometheus/snmp_exporter/releases/download/v0.26.0/sha256sums.txt
+下載：https://github.com/prometheus/prometheus/releases/download/v2.54.1/prometheus-2.54.1.linux-amd64.tar.gz
+下載：https://github.com/prometheus/prometheus/releases/download/v2.54.1/sha256sums.txt
+[3/6] 產生設定、保留 Receiver Token、自動載入九規則及十面板
+ts=2026-10-19T18:16:45.182Z caller=main.go:212 level=info msg="Starting snmp_exporter" version="(version=0.26.0, branch=HEAD, revision=44f8732988e726bad3f13d5779f1da7705178642)" concurrency=1 debug_snmp=false
+ts=2026-10-19T18:16:45.183Z caller=main.go:213 level=info build_context="(go=go1.22.3, platform=linux/amd64, user=root@90ba0aabb239, date=20240511-11:16:35, tags=unknown)"
+ts=2026-10-19T18:16:45.269Z caller=main.go:227 level=info msg="Configuration parsed successfully"
+Checking /etc/prometheus/prometheus.yml
+ SUCCESS: /etc/prometheus/prometheus.yml is valid prometheus config file syntax
+
+[4/6] 設定管理網段防火牆
+Warning: ALREADY_ENABLED: rule family="ipv4" source address="10.0.2.0/24" port port="9090" protocol="tcp" accept
+success
+success
+Warning: ALREADY_ENABLED: rule family="ipv4" source address="10.0.2.0/24" port port="3000" protocol="tcp" accept
+Warning: ALREADY_ENABLED: rule family="ipv4" source address="100.114.236.88/32" port port="9108" protocol="tcp" accept
+success
+success
+[5/6] 啟動服務
+[6/6] 驗證 S3 API、Prometheus、Grafana 與兩站容量／成員
+等待服務就緒：http://127.0.0.1:3000/api/health
+A 站：容量與成員指標已由 Prometheus 實際取得
+B 站：容量與成員指標已由 Prometheus 實際取得
+Grafana：資料源正常；九條規則已實際評估，沒有評估錯誤
+
+VM 基礎建置與指標驗證通過。Grafana：http://10.0.2.15:3000/
+帳號 admin；密碼為你剛輸入的值。Dashboard 已自動載入，不需匯入 JSON。
+下一步：將 /root/truenas-cloudsync-postscript.sh 內容貼到 A 站 Cloud Sync Post-script，執行真實任務。
+Email／Discord 已配置，請在 Grafana Contact points 分別 Test 確認收訊。
+秘密輸入檔：/root/monitoring-setup.json；請勿提交 GitHub。備份：/var/lib/truenas-monitoring-install/backups/20261020-021643-776208
+/etc/cloudsync-monitor.env: OK
+/var/lib/cloudsync-monitor/last_success.json: OK
+PASS SELinux Enforcing
+PASS snmp_exporter active
+PASS s3_realtime_exporter active
+PASS cloudsync-monitor active
+PASS prometheus active
+PASS grafana-server active
+PASS 9 provisioned rules
+PASS 10 dashboard panels
+PASS Both notification receivers
+PASS Five real scrape targets UP
+PASS TrueNAS_A capacity exactly 2 TB
+PASS TrueNAS_B capacity exactly 2 TB
+PASS Real AWS CLI lists fixture inventory
+PASS Invalid callback token rejected
+PASS Generated postscript callback scraped
+PASS All 9 rules evaluated without errors
+PASS Dashboard A/B health values ONLINE 0/0
+PASS Grafana datasource actually returns frames
+BASELINE ACCEPTANCE PASSED

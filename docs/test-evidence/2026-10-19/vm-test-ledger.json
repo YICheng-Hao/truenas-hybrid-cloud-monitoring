@@ -1,0 +1,81 @@
+{
+  "fresh_vm_attempts": 8,
+  "fresh_install_passes": 8,
+  "full_acceptance_passes": 4,
+  "completed_reinstalls": 4,
+  "completed_reboots": 4,
+  "results": [
+    {
+      "round": 1,
+      "run_id": 39295492867,
+      "commit": "c94875079feec40a76f522b68ea316938f981d34",
+      "os": "Rocky 9.8",
+      "fresh_install_passed": true,
+      "full_acceptance_passed": false,
+      "interrupted_by_test_path_error": true
+    },
+    {
+      "round": 1,
+      "run_id": 39295492867,
+      "commit": "c94875079feec40a76f522b68ea316938f981d34",
+      "os": "Rocky 10.2",
+      "fresh_install_passed": true,
+      "full_acceptance_passed": false,
+      "interrupted_by_test_path_error": true
+    },
+    {
+      "round": 2,
+      "run_id": 39295989943,
+      "commit": "1e3cea34e6a727069f0cbc7e19ad486c766cd03d",
+      "os": "Rocky 9.8",
+      "fresh_install_passed": true,
+      "full_acceptance_passed": false,
+      "interrupted_by_test_path_error": true
+    },
+    {
+      "round": 2,
+      "run_id": 39295989943,
+      "commit": "1e3cea34e6a727069f0cbc7e19ad486c766cd03d",
+      "os": "Rocky 10.2",
+      "fresh_install_passed": true,
+      "full_acceptance_passed": false,
+      "interrupted_by_test_path_error": true
+    },
+    {
+      "round": 3,
+      "run_id": 39296984465,
+      "commit": "a82802d6e420a38417c942ab4a20b449e399e3ee",
+      "os": "Rocky 9.8",
+      "fresh_install_passed": true,
+      "full_acceptance_passed": true,
+      "interrupted_by_test_path_error": false
+    },
+    {
+      "round": 3,
+      "run_id": 39296984465,
+      "commit": "a82802d6e420a38417c942ab4a20b449e399e3ee",
+      "os": "Rocky 10.2",
+      "fresh_install_passed": true,
+      "full_acceptance_passed": true,
+      "interrupted_by_test_path_error": false
+    },
+    {
+      "round": 4,
+      "run_id": 39299129639,
+      "commit": "a1e5093bfcdac1f81c5876c514c710270dd99a67",
+      "os": "Rocky 9.8",
+      "fresh_install_passed": true,
+      "full_acceptance_passed": true,
+      "interrupted_by_test_path_error": false
+    },
+    {
+      "round": 4,
+      "run_id": 39299129639,
+      "commit": "a1e5093bfcdac1f81c5876c514c710270dd99a67",
+      "os": "Rocky 10.2",
+      "fresh_install_passed": true,
+      "full_acceptance_passed": true,
+      "interrupted_by_test_path_error": false
+    }
+  ]
+}

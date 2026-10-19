@@ -2,7 +2,7 @@
 
 日期：2026-10-20（臺北時間；GitHub 日誌為 2026-10-19 UTC）。
 
-狀態：第三輪 Rocky 9／10 已完整通過；加入 S3 漏報修正後的第四輪仍在執行，尚未宣告最終版本全數通過。
+狀態：最終版本完整通過。測試提交為 `a1e5093bfcdac1f81c5876c514c710270dd99a67`；最新一輪 Rocky 9.8 與 Rocky 10.2 的建置、故障／恢復、重跑與重開機均成功。外部服務為隔離替身，範圍見下方。
 
 正式流程：[從零建置與複製貼上命令](monitoring-vm-from-zero.md)。
 
@@ -15,9 +15,9 @@
 | [第一輪](https://github.com/YICheng-Hao/truenas-hybrid-cloud-monitoring/actions/runs/39295492867) | `c948750` | 完整流程失敗 | 完整流程失敗 | 兩版正式安裝及前 22 項驗收通過；測試程式保存路徑時發生 TypeError，後續步驟未執行 |
 | [第二輪](https://github.com/YICheng-Hao/truenas-hybrid-cloud-monitoring/actions/runs/39295989943) | `1e3cea3` | 完整流程失敗 | 完整流程失敗 | 補入 CI 日誌與 PromQL；兩版再次重現相同測試程式錯誤 |
 | [第三輪](https://github.com/YICheng-Hao/truenas-hybrid-cloud-monitoring/actions/runs/39296984465) | `a82802d` | 完整通過 | 完整通過 | 故障與恢復、重跑安裝、重新開機均通過 |
-| [第四輪](https://github.com/YICheng-Hao/truenas-hybrid-cloud-monitoring/actions/runs/39299129639) | `a1e5093` | 執行中 | 執行中 | 最終 S3 漏報修正版本，須等待整輪結果 |
+| [第四輪](https://github.com/YICheng-Hao/truenas-hybrid-cloud-monitoring/actions/runs/39299129639) | `a1e5093` | 完整通過 | 完整通過 | 最終 S3 漏報修正版本，兩版完整驗收再次通過 |
 
-第三輪每台 VM 完成 34 項故障／恢復檢查，重跑後 18 項、重開機後再 18 項檢查，並核對 Receiver 設定檔及成功回報檔雜湊。四輪共排入八台乾淨 VM；未完成的輪次不算成功。
+共 4 輪、8 台全新 VM：八台的正式安裝全部通過；第 3、4 輪共四台完成全部驗收，其餘四台在已定位的測試程式錯誤處中斷，不列完整通過。每台完整通過的 VM 完成 34 項故障／恢復檢查、重跑後 18 項、重開機後再 18 項，並核對兩個狀態檔雜湊。合計實際完成四次重裝與四次重新開機驗證。
 
 ## 驗收內容
 
@@ -70,6 +70,8 @@ python3 -m unittest discover -s tests -p 'test_*.py' -v
 正式 CI 使用真實 Rocky VM、RPM、systemd、SELinux 及正式監控程式。外部 TrueNAS SNMP、S3 API、SMTP／Discord 使用隔離替身；Tailscale 安裝真實 RPM，但身分／狀態回覆由替身提供，沒有驗證真實登入與跨站 Tailnet。輸入為預先準備的假憑證 JSON，不測使用者的 GitHub 互動登入、AWS IAM、Gmail 或 Discord 帳號有效性。測試 VM 停用 kdump，避免首次開機巡檢與安裝競爭資源。
 
 這些測試不代替實際 TrueNAS 硬碟故障、Resilver、Windows SMB 可用性、ZFS 複寫或真實 Cloud Sync 任務。現場仍依教學執行一次真實任務與外部通知收訊驗收。
+
+最新一輪兩份下載 artifact 已比對 GitHub 提供的 SHA256；逐台結果見 [VM 測試清單](test-evidence/2026-10-19/vm-test-ledger.json)。
 
 容量面板檔保持原內容，SHA256：`af19259d3b2c6da6e4a862837bf66e6cad8332abf4ad2ab6d80b4bfb07afbdc2`。
 
