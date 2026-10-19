@@ -1,0 +1,172 @@
+[
+  {
+    "name": "SELinux Enforcing",
+    "passed": true,
+    "elapsed": 0.0
+  },
+  {
+    "name": "snmp_exporter active",
+    "passed": true,
+    "elapsed": 0.01
+  },
+  {
+    "name": "s3_realtime_exporter active",
+    "passed": true,
+    "elapsed": 0.01
+  },
+  {
+    "name": "cloudsync-monitor active",
+    "passed": true,
+    "elapsed": 0.01
+  },
+  {
+    "name": "prometheus active",
+    "passed": true,
+    "elapsed": 0.01
+  },
+  {
+    "name": "grafana-server active",
+    "passed": true,
+    "elapsed": 0.01
+  },
+  {
+    "name": "9 provisioned rules",
+    "passed": true,
+    "elapsed": 0.01
+  },
+  {
+    "name": "10 dashboard panels",
+    "passed": true,
+    "elapsed": 0.02
+  },
+  {
+    "name": "Both notification receivers",
+    "passed": true,
+    "elapsed": 0.01
+  },
+  {
+    "name": "Five real scrape targets UP",
+    "passed": true,
+    "elapsed": 183.24
+  },
+  {
+    "name": "TrueNAS_A capacity exactly 2 TB",
+    "passed": true,
+    "elapsed": 0.0
+  },
+  {
+    "name": "TrueNAS_B capacity exactly 2 TB",
+    "passed": true,
+    "elapsed": 0.0
+  },
+  {
+    "name": "Real AWS CLI lists fixture inventory",
+    "passed": true,
+    "elapsed": 0.0
+  },
+  {
+    "name": "Invalid callback token rejected",
+    "passed": true,
+    "elapsed": 0.0
+  },
+  {
+    "name": "Generated postscript callback scraped",
+    "passed": true,
+    "elapsed": 15.02
+  },
+  {
+    "name": "All 9 rules evaluated without errors",
+    "passed": true,
+    "elapsed": 0.02
+  },
+  {
+    "name": "Dashboard A/B health values ONLINE 0/0",
+    "passed": true,
+    "elapsed": 0.02
+  },
+  {
+    "name": "Grafana datasource actually returns frames",
+    "passed": true,
+    "elapsed": 0.01
+  },
+  {
+    "name": "ZFS 磁碟成員或 VDEV 異常 panel state",
+    "passed": true,
+    "elapsed": 9.07
+  },
+  {
+    "name": "ZFS 磁碟成員或 VDEV 異常 firing in Grafana",
+    "passed": true,
+    "elapsed": 45.21
+  },
+  {
+    "name": "ZFS 磁碟成員或 VDEV 異常 discord notification",
+    "passed": true,
+    "elapsed": 9.01
+  },
+  {
+    "name": "ZFS 磁碟成員或 VDEV 異常 email notification",
+    "passed": true,
+    "elapsed": 0.0
+  },
+  {
+    "name": "ZFS 磁碟成員或 VDEV 異常 panel returns ONLINE",
+    "passed": true,
+    "elapsed": 6.06
+  },
+  {
+    "name": "ZFS 磁碟成員或 VDEV 異常 returns inactive",
+    "passed": true,
+    "elapsed": 45.21
+  },
+  {
+    "name": "ZFS 磁碟成員或 VDEV 異常 discord recovery",
+    "passed": true,
+    "elapsed": 9.01
+  },
+  {
+    "name": "ZFS 磁碟成員或 VDEV 異常 email recovery",
+    "passed": true,
+    "elapsed": 0.0
+  },
+  {
+    "name": "ZFS 儲存池降級（DEGRADED） panel state",
+    "passed": true,
+    "elapsed": 6.07
+  },
+  {
+    "name": "ZFS 儲存池降級（DEGRADED） firing in Grafana",
+    "passed": true,
+    "elapsed": 87.39
+  },
+  {
+    "name": "ZFS 儲存池降級（DEGRADED） discord notification",
+    "passed": true,
+    "elapsed": 12.02
+  },
+  {
+    "name": "ZFS 儲存池降級（DEGRADED） email notification",
+    "passed": true,
+    "elapsed": 0.0
+  },
+  {
+    "name": "ZFS 儲存池降級（DEGRADED） panel returns ONLINE",
+    "passed": true,
+    "elapsed": 6.06
+  },
+  {
+    "name": "ZFS 儲存池降級（DEGRADED） returns inactive",
+    "passed": true,
+    "elapsed": 42.19
+  },
+  {
+    "name": "ZFS 儲存池降級（DEGRADED） discord recovery",
+    "passed": true,
+    "elapsed": 12.02
+  },
+  {
+    "name": "ZFS 儲存池降級（DEGRADED） email recovery",
+    "passed": true,
+    "elapsed": 0.0
+  }
+]

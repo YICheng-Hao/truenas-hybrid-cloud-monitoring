@@ -1,0 +1,7 @@
+[
+  {
+    "round": 1,
+    "passed": false,
+    "error": "CalledProcessError(1, ['ssh', '-i', '/home/runner/work/truenas-hybrid-cloud-monitoring/truenas-hybrid-cloud-monitoring/_lab/lab-key', '-p', '2222', '-o', 'StrictHostKeyChecking=no', '-o', 'UserKnownHostsFile=/dev/null', '-o', 'ConnectTimeout=10', '-o', 'ServerAliveInterval=15', '-o', 'ServerAliveCountMax=4', 'root@127.0.0.1', 'bash -s'])"
+  }
+]

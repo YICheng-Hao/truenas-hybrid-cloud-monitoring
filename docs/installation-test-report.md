@@ -1,68 +1,76 @@
-# 監測 VM 從零安裝測試紀錄
+# 監測 VM 從零建置測試報告
 
-狀態：進行中，尚未宣告完整 VM 驗收通過。測試基準為 `f529e7f450c68f6d5e26a657ec0a8b48f95e2cd5`。
+日期：2026-10-20（臺北時間；GitHub 日誌為 2026-10-19 UTC）。
 
-## 本輪可重現測試
+狀態：第三輪 Rocky 9／10 已完整通過；加入 S3 漏報修正後的第四輪仍在執行，尚未宣告最終版本全數通過。
 
-| 測試 | 次數／案例 | 結果 |
-|---|---:|---|
-| 修正後元件測試第一輪 | 27 項 | 全數通過 |
-| 補入執行中二進位重裝的元件測試第二輪 | 28 項 | 全數通過 |
-| 相同 28 項對照 GitHub 基準版 | 28 項 | 3 個失敗、3 個錯誤，成功重現缺陷 |
-| 加入 Grafana 評估驗證後的元件測試 | 31 項 | 全數通過；四輪共 114 次案例執行 |
-| PromQL 測試 | 1 輪／17 個情境 | 全數通過 |
-| 真正 SNMP Exporter 協定測試 | 2 輪 | 首輪驗收誤要求已移除的索引標籤；修正測試後，3 種狀態全部通過 |
-| 主機原生 Grafana + Prometheus 評估 | 1 輪 | 未通過；測試主機禁止 Unix socket，Prometheus 外掛不能啟動 |
-| 本機 Rocky 9.8 QEMU VM | 前置重試 2 次；主安裝器已開始 | 首次因測試代理 HTTP 403 中止；重試已安裝 Tailscale 並進入正式安裝 |
-| CI 第一輪，Rocky 9／10 | 2 台全新 VM | 兩版正式安裝通過；各通過 22 項檢查後，測試程式保存路徑發生 TypeError，整輪未通過 |
-| CI 第二輪（增加日誌與 PromQL） | Rocky 9／10，進行中 | 仍含相同測試路徑問題，不視為完整通過 |
-| CI 第三輪（修正保存路徑） | Rocky 9／10，進行中 | 須完成故障、恢復、重跑與重新開機才計為通過 |
+正式流程：[從零建置與複製貼上命令](monitoring-vm-from-zero.md)。
 
-以上是本輪有可重現證據的計數；環境準備與下載重試不算完整安裝成功。早先中斷的測試環境未保留完整輸出，不納入本表成功數。
+## 完整 VM 測試輪數
 
-## 已修正問題
+每輪分別建立一台全新 Rocky 9 與 Rocky 10 VM，使用固定提交的正式安裝器。不是只驗證 YAML，也不是在同一台已安裝好的 VM 上假裝從零開始。
 
-1. 安裝器直接覆寫執行中的 SNMP Exporter／Prometheus，重跑會出現 `ETXTBSY`。改成相同目錄暫存、fsync、設定權限後原子替換 inode，舊程序繼續執行。
-2. Receiver 解析無效 UTF-8 或不合法表單時拋出例外並斷線。改成回應 HTTP 400，且不寫入成功紀錄。
-3. S3 CLI 雖然回傳 0，輸出為空、缺少摘要、解析失敗或負值時仍可能顯示健康。改為必須取得非負物件數與總位元組數；失敗時健康值為 0、容量與估算值為 NaN。空桶的合法 0／0 摘要仍視為正常。
-4. 安裝驗證原本只檢查 Grafana HTTP 存活。補入資料源健康檢查及九條規則實際評估，避免將「檔案載入成功」寫成「告警可用」。
+| 輪次 | 提交 | Rocky 9 | Rocky 10 | 原因／結果 |
+|---|---|---|---|---|
+| [第一輪](https://github.com/YICheng-Hao/truenas-hybrid-cloud-monitoring/actions/runs/39295492867) | `c948750` | 完整流程失敗 | 完整流程失敗 | 兩版正式安裝及前 22 項驗收通過；測試程式保存路徑時發生 TypeError，後續步驟未執行 |
+| [第二輪](https://github.com/YICheng-Hao/truenas-hybrid-cloud-monitoring/actions/runs/39295989943) | `1e3cea3` | 完整流程失敗 | 完整流程失敗 | 補入 CI 日誌與 PromQL；兩版再次重現相同測試程式錯誤 |
+| [第三輪](https://github.com/YICheng-Hao/truenas-hybrid-cloud-monitoring/actions/runs/39296984465) | `a82802d` | 完整通過 | 完整通過 | 故障與恢復、重跑安裝、重新開機均通過 |
+| [第四輪](https://github.com/YICheng-Hao/truenas-hybrid-cloud-monitoring/actions/runs/39299129639) | `a1e5093` | 執行中 | 執行中 | 最終 S3 漏報修正版本，須等待整輪結果 |
 
-## 驗收邊界
+第三輪每台 VM 完成 34 項故障／恢復檢查，重跑後 18 項、重開機後再 18 項檢查，並核對 Receiver 設定檔及成功回報檔雜湊。四輪共排入八台乾淨 VM；未完成的輪次不算成功。
 
-完整 VM 使用真實 Rocky Linux、systemd、SELinux、SNMP Exporter、Prometheus、Grafana、AWS CLI 及兩支自研服務。外部 TrueNAS SNMP、S3 API、SMTP 與 Discord 使用隔離測試端點，所有憑證均為無效測試值，不傳送真實通知。Tailscale 登入與 Tailnet 身分使用測試替身，不能據此宣稱真實跨站網路與使用者帳號已通過驗收。
+## 驗收內容
 
-容量面板 `grafana/TrueNAS_Hybrid_Cloud.json` 保留原內容，SHA256 為 `af19259d3b2c6da6e4a862837bf66e6cad8332abf4ad2ab6d80b4bfb07afbdc2`。
+- 真正 Rocky Linux、systemd、SELinux Enforcing，以及五個正式監控服務。
+- SNMP Exporter 0.26.0、Prometheus 2.54.1、Grafana 13.2.4、真正 AWS CLI v2 與兩支 Python 服務。
+- 九條規則、十個面板、雙通知聯絡點、五個採集 Target 全部 UP；Grafana 資料源真正回傳資料框架，規則已實際評估且沒有錯誤。
+- A／B 合成根掛載點容量各為 2,000,000,000,000 bytes；實際資料流經 SNMP、Exporter、Prometheus。這是測試資料，不是將正式面板容量硬編碼為 2 TB。
+- AWS CLI 向隔離 S3 XML 端點列舉兩個物件、3072 bytes；Receiver 拒絕錯誤 Token，產生的 Post-script 可以成功回報並被採集。
+- 原生 ONLINE、成員 OFFLINE：面板值為 3，成員規則 Firing，Email／Discord 收到該規則及恢復通知。
+- 原生 DEGRADED：面板值為 1，降級規則 Firing，兩管道收到該規則及恢復通知。
+- 重跑正式安裝器後服務正常；Receiver Token 與成功回報 JSON 內容雜湊保持一致。
+- 真正重新開機後，五服務、九規則、十面板、指標及資料源再次通過檢查；狀態檔保留。
 
-## 重跑元件測試
+通知驗收比對真正的告警名稱與觸發／解除標題；不能把帶有原規則說明文字的 `DatasourceError` 當作磁碟故障通知。
+
+## 發現的問題與修正
+
+| 問題 | 修正與驗證 |
+|---|---|
+| 重跑安裝直接覆寫執行中的二進位檔，出現 ETXTBSY | 同目錄暫存、fsync、設定權限後原子替換 inode；元件測試保留舊程序持續執行，完整 VM 亦實際重跑 |
+| Receiver 遇無效 UTF-8／表單時斷線 | 改回 HTTP 400，不寫入成功紀錄；有效回報及錯誤 Token 另行驗證 |
+| S3 CLI 空白、缺摘要、解析失敗或負值時仍可能顯示健康 | 必須取得非負物件數與大小才設健康 1；失敗時健康 0、容量及估算為 NaN；合法空桶 0／0 仍正常 |
+| Grafana 網頁可開、規則已載入，卻可能無法實際評估 | 安裝最後新增資料源健康檢查與九條規則實際評估；錯誤時停止，不宣告通過 |
+| S3 Exporter 整支停止、健康指標消失時，舊規則只剩正常 NAS 序列，造成漏報 | 新增依 job／instance 配對的 0 值備援。真正 promtool 重現兩個漏報案例，修正後五種可用性情境全部通過；穩定版與整合版告警檔同步 |
+| 測試程式以 Path 加字串保存故障快照，讓後續驗收中斷 | 改成先組合檔名再接路徑；保留第一、二輪失敗紀錄，第三輪完整通過 |
+| 舊故障文件混入歷史容量模組與增量更新步驟 | 統一 README、從零建置及故障測試文件，現行容量沿用 hrStorage；歷史工具不屬於從零流程 |
+
+S3 漏報修正使用 `or on (job, instance) (0 * up{job="aws_s3"})`：有有效 API 健康指標就沿用，缺失時回傳異常 0。沒有更改正式評估週期與 Pending 時間。
+
+## 元件與查詢測試
+
+| 測試 | 紀錄 |
+|---|---|
+| 本機 Python 回歸測試 | 五輪，案例數依序 27、28、28、31、32；其中對 GitHub 舊版的 28 項對照測試重現 3 失敗、3 錯誤；最後 32 項全通過 |
+| GitHub Python 回歸測試 | 第 1～3 輪各 31 項，第 4 輪 32 項，均通過 |
+| 最終 PromQL | 25 個情境全部通過，包含原生健康、成員、現行容量、S3 可用性；其中 1 項為保留的歷史容量回歸 |
+| 現行容量新增情境 | 不同 role 的 A／B 正確配對、忽略子資料集、根掛載點缺失時不代入子資料集 |
+| 真正 SNMP Exporter 協定測試 | 兩輪；第一輪驗收誤要求已移除的索引標籤，修正測試後三種狀態均通過 |
+
+元件測試指令：
 
 ```bash
 python3 -m unittest discover -s tests -p 'test_*.py' -v
 ```
 
-完整 VM、故障通知、恢復通知、重跑與重新開機結果將在完成後追加；目前不能將本報告引用為「從零建置全部通過」。
+## 環境問題與驗收邊界
 
-## 自動整合測試
+原生測試主機禁止 Unix socket，導致 Grafana Prometheus 外掛無法初始化；此為測試環境限制，後改用真正 KVM VM 驗證，不能把它誤認為使用者規則錯誤。本機 TCG VM 首次前置作業曾遭代理 HTTP 403，重試後安裝 Tailscale、進入正式安裝並安裝 Grafana；因軟體模擬耗時，收集紀錄後關閉，沒有將它算為完整通過。
 
-已加入 `.github/workflows/monitoring-vm-test.yml` 與 `tests/integration/`。執行器會建立真實 Rocky 9／10 VM，測正式安裝器、合成故障與雙管道通知、重跑及重新開機。工作流程是否通過應以實際執行結果與 artifact 為準；加入工作流程本身不算通過。
+正式 CI 使用真實 Rocky VM、RPM、systemd、SELinux 及正式監控程式。外部 TrueNAS SNMP、S3 API、SMTP／Discord 使用隔離替身；Tailscale 安裝真實 RPM，但身分／狀態回覆由替身提供，沒有驗證真實登入與跨站 Tailnet。輸入為預先準備的假憑證 JSON，不測使用者的 GitHub 互動登入、AWS IAM、Gmail 或 Discord 帳號有效性。測試 VM 停用 kdump，避免首次開機巡檢與安裝競爭資源。
 
-## CI 執行連結與已定位的測試問題
+這些測試不代替實際 TrueNAS 硬碟故障、Resilver、Windows SMB 可用性、ZFS 複寫或真實 Cloud Sync 任務。現場仍依教學執行一次真實任務與外部通知收訊驗收。
 
-- [第一輪：39295492867](https://github.com/YICheng-Hao/truenas-hybrid-cloud-monitoring/actions/runs/39295492867)，提交 `c94875079feec40a76f522b68ea316938f981d34`。
-- [第二輪：39295989943](https://github.com/YICheng-Hao/truenas-hybrid-cloud-monitoring/actions/runs/39295989943)，提交 `1e3cea34e6a727069f0cbc7e19ad486c766cd03d`。
-- [第三輪：39296984465](https://github.com/YICheng-Hao/truenas-hybrid-cloud-monitoring/actions/runs/39296984465)，提交 `a82802d6e420a38417c942ab4a20b449e399e3ee`。
+容量面板檔保持原內容，SHA256：`af19259d3b2c6da6e4a862837bf66e6cad8332abf4ad2ab6d80b4bfb07afbdc2`。
 
-第一輪兩版皆已實際驗證五服務、九規則、十面板、五 Target、合成 2 TB 容量、真正 AWS CLI 取得 3072 bytes、Receiver 認證與回報，以及 Grafana 資料源查詢。亦驗證成員異常面板值為 3、規則 Firing、Email 與 Discord 收到該規則告警；因此可以確認這些檢查已通過，但不能宣稱整輪成功。
-
-中斷點為測試程式 `(R/'runtime-firing-'+mode+'.json')`，不是監控服務錯誤；修正為 `R/('runtime-firing-'+mode+'.json')`。第一輪尚未執行後面的恢復／DEGRADED／重裝／重開機驗收，已在第三輪重新建立乾淨 VM 繼續驗證。
-
-部分原始證據長期保存在 [docs/test-evidence/2026-10-19](test-evidence/2026-10-19/)。CI 完整日誌／artifact 另保存 14 天；報告不以只有載入成功或 `DatasourceError` 通知作為成功依據。
-
-## S3 Exporter 停止時的漏報修正
-
-另以真正 promtool 重現：當兩站 NAS 採集正常，但 S3 Exporter 停止、`aws_s3_bucket_health_status` 消失時，舊離線規則只留下正常的 NAS 序列，最小值仍為 1，會漏報。健康指標缺失但 HTTP 採集仍為 UP 亦有相同問題。
-
-已在穩定版與整合版告警檔補入 `or on (job, instance) (0 * up{job="aws_s3"})`。有有效 S3 健康指標時沿用它；指標缺失時回傳 0，避免消失的序列被視為正常。新增五種可用性情境，修正前 2 項失敗，修正後全部通過。
-
-亦補入現行 hrStorage 容量的三種測試：A／B 各 2 TB、不同 role 標籤正確配對；忽略子資料集；根掛載點缺失時不代入子資料集。既有的 17 項 PromQL 情境中有 1 項是保留的歷史容量回歸，現行容量另以這三項與完整 VM 整合驗收確認。
-
-本次更新後 Python 回歸測試為 32 項，PromQL 為 25 個情境，均已在本機通過；新規則仍須再跑一次兩版乾淨 VM 的完整流程。面板 JSON 保持原雜湊，沒有硬編碼正式容量。
+長期證據：[docs/test-evidence/2026-10-19](test-evidence/2026-10-19/)。CI 完整 artifact 另保留 14 天。早先中斷環境的未完整保存輸出不計入本表成功數。

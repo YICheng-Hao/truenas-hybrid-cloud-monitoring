@@ -1,0 +1,36 @@
+Warning: Permanently added '[127.0.0.1]:2222' (ED25519) to the list of known hosts.
+PASS SELinux Enforcing
+PASS snmp_exporter active
+PASS s3_realtime_exporter active
+PASS cloudsync-monitor active
+PASS prometheus active
+PASS grafana-server active
+PASS 9 provisioned rules
+PASS 10 dashboard panels
+PASS Both notification receivers
+PASS Five real scrape targets UP
+PASS TrueNAS_A capacity exactly 2 TB
+PASS TrueNAS_B capacity exactly 2 TB
+PASS Real AWS CLI lists fixture inventory
+PASS Invalid callback token rejected
+PASS Generated postscript callback scraped
+PASS All 9 rules evaluated without errors
+PASS Dashboard A/B health values ONLINE 0/0
+PASS Grafana datasource actually returns frames
+PASS ZFS 磁碟成員或 VDEV 異常 panel state
+PASS ZFS 磁碟成員或 VDEV 異常 firing in Grafana
+PASS ZFS 磁碟成員或 VDEV 異常 discord notification
+PASS ZFS 磁碟成員或 VDEV 異常 email notification
+PASS ZFS 磁碟成員或 VDEV 異常 panel returns ONLINE
+PASS ZFS 磁碟成員或 VDEV 異常 returns inactive
+PASS ZFS 磁碟成員或 VDEV 異常 discord recovery
+PASS ZFS 磁碟成員或 VDEV 異常 email recovery
+PASS ZFS 儲存池降級（DEGRADED） panel state
+PASS ZFS 儲存池降級（DEGRADED） firing in Grafana
+PASS ZFS 儲存池降級（DEGRADED） discord notification
+PASS ZFS 儲存池降級（DEGRADED） email notification
+PASS ZFS 儲存池降級（DEGRADED） panel returns ONLINE
+PASS ZFS 儲存池降級（DEGRADED） returns inactive
+PASS ZFS 儲存池降級（DEGRADED） discord recovery
+PASS ZFS 儲存池降級（DEGRADED） email recovery
+ISOLATED INTEGRATION ACCEPTANCE PASSED

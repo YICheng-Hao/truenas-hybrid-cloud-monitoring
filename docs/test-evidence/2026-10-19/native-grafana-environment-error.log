@@ -1,0 +1,1 @@
+logger=plugin.prometheus t=2026-10-19T13:20:02.520270362-04:00 level=error msg="plugin init error" error="listen unix /tmp/plugin1804112914: socket: operation not permitted"
