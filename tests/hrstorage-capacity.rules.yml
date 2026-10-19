@@ -1,0 +1,9 @@
+groups:
+- name: root_capacity
+  rules:
+  - record: test:root_bytes
+    expr: hrStorageSize{job="truenas_snmp",hrStorageDescr=~"/mnt/mainpool|/mnt/backuppool"}
+      * hrStorageAllocationUnits{job="truenas_snmp",hrStorageDescr=~"/mnt/mainpool|/mnt/backuppool"}
+  - record: test:root_percent
+    expr: 100 * hrStorageUsed{job="truenas_snmp",hrStorageDescr=~"/mnt/mainpool|/mnt/backuppool"}
+      / hrStorageSize{job="truenas_snmp",hrStorageDescr=~"/mnt/mainpool|/mnt/backuppool"}

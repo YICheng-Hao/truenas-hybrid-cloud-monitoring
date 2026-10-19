@@ -1,0 +1,84 @@
+rule_files:
+- monitoring-availability.rules.yml
+tests:
+- name: healthy
+  interval: 1m
+  input_series:
+  - series: up{job="truenas_snmp",instance="100.114.236.88"}
+    values: '1'
+  - series: up{job="truenas_snmp",instance="100.113.107.95"}
+    values: '1'
+  - series: up{job="aws_s3",instance="localhost:9107"}
+    values: '1'
+  - series: aws_s3_bucket_health_status{job="aws_s3",instance="localhost:9107",bucket_name="fixture"}
+    values: '1'
+  promql_expr_test:
+  - expr: min(test:availability)
+    eval_time: 0m
+    exp_samples:
+    - labels: '{}'
+      value: 1
+- name: nas_down
+  interval: 1m
+  input_series:
+  - series: up{job="truenas_snmp",instance="100.114.236.88"}
+    values: '0'
+  - series: up{job="truenas_snmp",instance="100.113.107.95"}
+    values: '1'
+  - series: up{job="aws_s3",instance="localhost:9107"}
+    values: '1'
+  - series: aws_s3_bucket_health_status{job="aws_s3",instance="localhost:9107",bucket_name="fixture"}
+    values: '1'
+  promql_expr_test:
+  - expr: min(test:availability)
+    eval_time: 0m
+    exp_samples:
+    - labels: '{}'
+      value: 0
+- name: s3_api_failure
+  interval: 1m
+  input_series:
+  - series: up{job="truenas_snmp",instance="100.114.236.88"}
+    values: '1'
+  - series: up{job="truenas_snmp",instance="100.113.107.95"}
+    values: '1'
+  - series: up{job="aws_s3",instance="localhost:9107"}
+    values: '1'
+  - series: aws_s3_bucket_health_status{job="aws_s3",instance="localhost:9107",bucket_name="fixture"}
+    values: '0'
+  promql_expr_test:
+  - expr: min(test:availability)
+    eval_time: 0m
+    exp_samples:
+    - labels: '{}'
+      value: 0
+- name: s3_exporter_down
+  interval: 1m
+  input_series:
+  - series: up{job="truenas_snmp",instance="100.114.236.88"}
+    values: '1'
+  - series: up{job="truenas_snmp",instance="100.113.107.95"}
+    values: '1'
+  - series: up{job="aws_s3",instance="localhost:9107"}
+    values: '0'
+  promql_expr_test:
+  - expr: min(test:availability)
+    eval_time: 0m
+    exp_samples:
+    - labels: '{}'
+      value: 0
+- name: s3_health_missing
+  interval: 1m
+  input_series:
+  - series: up{job="truenas_snmp",instance="100.114.236.88"}
+    values: '1'
+  - series: up{job="truenas_snmp",instance="100.113.107.95"}
+    values: '1'
+  - series: up{job="aws_s3",instance="localhost:9107"}
+    values: '1'
+  promql_expr_test:
+  - expr: min(test:availability)
+    eval_time: 0m
+    exp_samples:
+    - labels: '{}'
+      value: 0

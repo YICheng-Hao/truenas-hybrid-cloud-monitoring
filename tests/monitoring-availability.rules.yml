@@ -1,0 +1,6 @@
+groups:
+- name: availability
+  rules:
+  - record: test:availability
+    expr: up{job="truenas_snmp"} or aws_s3_bucket_health_status{job="aws_s3"} or on
+      (job, instance) (0 * up{job="aws_s3"})

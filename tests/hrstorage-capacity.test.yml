@@ -1,0 +1,53 @@
+rule_files:
+- hrstorage-capacity.rules.yml
+tests:
+- name: two_root_mounts_ignore_child_and_preserve_roles
+  input_series: &id001
+  - series: hrStorageSize{job="truenas_snmp",instance="100.114.236.88",nodename="TrueNAS_A",role="Primary",hrStorageDescr="/mnt/mainpool"}
+    values: '488281250'
+  - series: hrStorageAllocationUnits{job="truenas_snmp",instance="100.114.236.88",nodename="TrueNAS_A",role="Primary",hrStorageDescr="/mnt/mainpool"}
+    values: '4096'
+  - series: hrStorageUsed{job="truenas_snmp",instance="100.114.236.88",nodename="TrueNAS_A",role="Primary",hrStorageDescr="/mnt/mainpool"}
+    values: '48828125'
+  - series: hrStorageSize{job="truenas_snmp",instance="100.113.107.95",nodename="TrueNAS_B",role="Backup",hrStorageDescr="/mnt/backuppool"}
+    values: '488281250'
+  - series: hrStorageAllocationUnits{job="truenas_snmp",instance="100.113.107.95",nodename="TrueNAS_B",role="Backup",hrStorageDescr="/mnt/backuppool"}
+    values: '4096'
+  - series: hrStorageUsed{job="truenas_snmp",instance="100.113.107.95",nodename="TrueNAS_B",role="Backup",hrStorageDescr="/mnt/backuppool"}
+    values: '0'
+  - &id002
+    series: hrStorageSize{job="truenas_snmp",instance="100.114.236.88",nodename="TrueNAS_A",role="Primary",hrStorageDescr="/mnt/mainpool/data"}
+    values: '900000000'
+  - &id003
+    series: hrStorageAllocationUnits{job="truenas_snmp",instance="100.114.236.88",nodename="TrueNAS_A",role="Primary",hrStorageDescr="/mnt/mainpool/data"}
+    values: '4096'
+  - &id004
+    series: hrStorageUsed{job="truenas_snmp",instance="100.114.236.88",nodename="TrueNAS_A",role="Primary",hrStorageDescr="/mnt/mainpool/data"}
+    values: '800000000'
+  promql_expr_test:
+  - expr: test:root_bytes
+    eval_time: 0m
+    exp_samples:
+    - labels: test:root_bytes{job="truenas_snmp",instance="100.114.236.88",nodename="TrueNAS_A",role="Primary",hrStorageDescr="/mnt/mainpool"}
+      value: 2000000000000
+    - labels: test:root_bytes{job="truenas_snmp",instance="100.113.107.95",nodename="TrueNAS_B",role="Backup",hrStorageDescr="/mnt/backuppool"}
+      value: 2000000000000
+- name: root_used_percent_uses_matching_labels
+  input_series: *id001
+  promql_expr_test:
+  - expr: test:root_percent
+    eval_time: 0m
+    exp_samples:
+    - labels: test:root_percent{job="truenas_snmp",instance="100.114.236.88",nodename="TrueNAS_A",role="Primary",hrStorageDescr="/mnt/mainpool"}
+      value: 10
+    - labels: test:root_percent{job="truenas_snmp",instance="100.113.107.95",nodename="TrueNAS_B",role="Backup",hrStorageDescr="/mnt/backuppool"}
+      value: 0
+- name: missing_root_does_not_substitute_child
+  input_series:
+  - *id002
+  - *id003
+  - *id004
+  promql_expr_test:
+  - expr: test:root_bytes
+    eval_time: 0m
+    exp_samples: []

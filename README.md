@@ -44,7 +44,7 @@ SNMP Exporter 0.26.0、Prometheus 2.54.1、Grafana 13.2.4。前兩者下載檔�
 python3 -m unittest discover -s tests -p 'test_*.py' -v
 ```
 
-元件回歸測試包含 31 項。完整 VM 與故障／恢復整合測試由 [GitHub Actions](https://github.com/YICheng-Hao/truenas-hybrid-cloud-monitoring/actions/workflows/monitoring-vm-test.yml) 執行；實際輪數、失敗原因與通過範圍記錄於 [安裝測試報告](docs/installation-test-report.md)。外部 NAS、S3、Email／Discord 與 Tailnet 身分採隔離替身，真實 Cloud Sync、跨站連線與外部收訊仍需依教學驗收。
+元件回歸測試包含 32 項。完整 VM 與故障／恢復整合測試由 [GitHub Actions](https://github.com/YICheng-Hao/truenas-hybrid-cloud-monitoring/actions/workflows/monitoring-vm-test.yml) 執行；實際輪數、失敗原因與通過範圍記錄於 [安裝測試報告](docs/installation-test-report.md)。外部 NAS、S3、Email／Discord 與 Tailnet 身分採隔離替身，真實 Cloud Sync、跨站連線與外部收訊仍需依教學驗收。
 
 禁止上傳 `/root/monitoring-setup.json`、AWS 憑證、Gmail App Password、Discord Webhook 或 Receiver Token。
 

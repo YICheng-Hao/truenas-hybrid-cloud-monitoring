@@ -76,6 +76,14 @@ class SetupContract(unittest.TestCase):
         p=yaml.safe_load(self.files['/etc/prometheus/prometheus.yml'][0])
         self.assertEqual(len(p['scrape_configs']),4)
         self.assertEqual(next(j for j in p['scrape_configs'] if j['job_name']=='cloudsync_success')['static_configs'][0]['targets'],['100.100.2.1:9108'])
+    def test_promql_fixtures_match_production_queries(self):
+        alerts=yaml.safe_load((ROOT/'configs/grafana-alerts-stable.yaml').read_text())
+        rules={r['uid']:r for g in alerts['groups'] for r in g['rules']}
+        availability=yaml.safe_load((ROOT/'tests/monitoring-availability.rules.yml').read_text())
+        capacity=yaml.safe_load((ROOT/'tests/hrstorage-capacity.rules.yml').read_text())
+        self.assertEqual(availability['groups'][0]['rules'][0]['expr'], rules['alert_node_or_s3_down']['data'][0]['model']['expr'])
+        self.assertEqual(capacity['groups'][0]['rules'][1]['expr'],rules['alert_zfs_pool_cap_high']['data'][0]['model']['expr'])
+        self.assertEqual((ROOT/'configs/grafana-alerts-stable.yaml').read_bytes(),(ROOT/'configs/grafana-alerts.yaml').read_bytes())
     def test_reject_placeholder(self):
         c=fixture();c['aws_secret_access_key']='YOUR_SECRET'
         with self.assertRaises(ValueError): setup.validate(c)

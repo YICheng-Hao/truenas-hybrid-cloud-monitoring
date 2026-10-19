@@ -56,3 +56,13 @@ python3 -m unittest discover -s tests -p 'test_*.py' -v
 中斷點為測試程式 `(R/'runtime-firing-'+mode+'.json')`，不是監控服務錯誤；修正為 `R/('runtime-firing-'+mode+'.json')`。第一輪尚未執行後面的恢復／DEGRADED／重裝／重開機驗收，已在第三輪重新建立乾淨 VM 繼續驗證。
 
 部分原始證據長期保存在 [docs/test-evidence/2026-10-19](test-evidence/2026-10-19/)。CI 完整日誌／artifact 另保存 14 天；報告不以只有載入成功或 `DatasourceError` 通知作為成功依據。
+
+## S3 Exporter 停止時的漏報修正
+
+另以真正 promtool 重現：當兩站 NAS 採集正常，但 S3 Exporter 停止、`aws_s3_bucket_health_status` 消失時，舊離線規則只留下正常的 NAS 序列，最小值仍為 1，會漏報。健康指標缺失但 HTTP 採集仍為 UP 亦有相同問題。
+
+已在穩定版與整合版告警檔補入 `or on (job, instance) (0 * up{job="aws_s3"})`。有有效 S3 健康指標時沿用它；指標缺失時回傳 0，避免消失的序列被視為正常。新增五種可用性情境，修正前 2 項失敗，修正後全部通過。
+
+亦補入現行 hrStorage 容量的三種測試：A／B 各 2 TB、不同 role 標籤正確配對；忽略子資料集；根掛載點缺失時不代入子資料集。既有的 17 項 PromQL 情境中有 1 項是保留的歷史容量回歸，現行容量另以這三項與完整 VM 整合驗收確認。
+
+本次更新後 Python 回歸測試為 32 項，PromQL 為 25 個情境，均已在本機通過；新規則仍須再跑一次兩版乾淨 VM 的完整流程。面板 JSON 保持原雜湊，沒有硬編碼正式容量。

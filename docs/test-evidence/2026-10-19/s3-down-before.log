@@ -1,0 +1,11 @@
+Unit Testing:  monitoring-availability.test.yml
+  FAILED:
+    expr: "min(test:availability)", time: 0s,
+        exp: {} 0E+00
+        got: {} 1E+00
+
+    expr: "min(test:availability)", time: 0s,
+        exp: {} 0E+00
+        got: {} 1E+00
+
+

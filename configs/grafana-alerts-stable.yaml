@@ -18,7 +18,7 @@ groups:
         to: 0
       datasourceUid: cg15oru9k9clcd
       model:
-        expr: up{job="truenas_snmp"} or aws_s3_bucket_health_status{job="aws_s3"}
+        expr: up{job="truenas_snmp"} or aws_s3_bucket_health_status{job="aws_s3"} or on (job, instance) (0 * up{job="aws_s3"})
         instant: true
         refId: A
     - refId: B

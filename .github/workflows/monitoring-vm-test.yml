@@ -7,6 +7,7 @@ on:
       - 'exporters/**'
       - 'configs/**'
       - 'systemd/**'
+      - 'grafana/**'
       - 'tests/**'
       - '.github/workflows/monitoring-vm-test.yml'
 permissions:
@@ -28,7 +29,7 @@ jobs:
           sha256sum --check --ignore-missing prometheus-checksums.txt
           tar -xzf prometheus-2.54.1.linux-amd64.tar.gz
           cd "$GITHUB_WORKSPACE/tests"
-          /tmp/prometheus-2.54.1.linux-amd64/promtool test rules zfs-health.test.yml zfs-members.test.yml zfs-capacity.test.yml
+          /tmp/prometheus-2.54.1.linux-amd64/promtool test rules zfs-health.test.yml zfs-members.test.yml zfs-capacity.test.yml hrstorage-capacity.test.yml monitoring-availability.test.yml
   rocky-vm:
     runs-on: ubuntu-24.04
     timeout-minutes: 55
