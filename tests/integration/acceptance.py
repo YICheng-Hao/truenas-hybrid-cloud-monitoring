@@ -77,7 +77,7 @@ try:
   check(title+' panel state',lambda mode=mode:panel_values((3 if mode=='OFFLINE' else 1,0)),90)
   check(title+' firing in Grafana',lambda uid=uid:rule(uid)['state']=='firing',240)
   for channel in ['discord','email']:check(title+' '+channel+' notification',lambda ch=channel:notifications(ch,title,since=start),150)
-  (R/'runtime-firing-'+mode+'.json').write_text(json.dumps(runtime(),ensure_ascii=False,indent=2))
+  (R/('runtime-firing-'+mode+'.json')).write_text(json.dumps(runtime(),ensure_ascii=False,indent=2))
   restore=time.time();(R/filename).unlink()
   check(title+' panel returns ONLINE',lambda:panel_values((0,0)),90)
   check(title+' returns inactive',lambda uid=uid:rule(uid)['state']=='inactive',180)
