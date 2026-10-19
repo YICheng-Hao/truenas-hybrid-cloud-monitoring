@@ -1,0 +1,135 @@
+rule_files:
+- zfs-health.rules.yml
+evaluation_interval: 15s
+tests:
+- name: online
+  interval: 15s
+  input_series:
+  - series: up{job="truenas_snmp",instance="100.114.236.88"}
+    values: 1+0x5
+  - series: zpoolHealthStr{job="truenas_snmp",instance="100.114.236.88",zpoolName="mainpool",zpoolHealthStr="ONLINE"}
+    values: 1+0x5
+  promql_expr_test:
+  - expr: test:pool_state
+    eval_time: 1m
+    exp_samples:
+    - labels: test:pool_state{instance="100.114.236.88",job="truenas_snmp",zpoolName="mainpool"}
+      value: 1
+    - labels: test:pool_state{instance="100.113.107.95",job="truenas_snmp",zpoolName="backuppool"}
+      value: 4
+    - labels: test:pool_state{instance="100.114.236.88",job="truenas_snmp",zpoolName="boot-pool"}
+      value: 4
+    - labels: test:pool_state{instance="100.113.107.95",job="truenas_snmp",zpoolName="boot-pool"}
+      value: 4
+- name: degraded
+  interval: 15s
+  input_series:
+  - series: up{job="truenas_snmp",instance="100.114.236.88"}
+    values: 1+0x5
+  - series: zpoolHealthStr{job="truenas_snmp",instance="100.114.236.88",zpoolName="mainpool",zpoolHealthStr="DEGRADED"}
+    values: 1+0x5
+  promql_expr_test:
+  - expr: test:pool_state
+    eval_time: 1m
+    exp_samples:
+    - labels: test:pool_state{instance="100.114.236.88",job="truenas_snmp",zpoolName="mainpool"}
+      value: 2
+    - labels: test:pool_state{instance="100.113.107.95",job="truenas_snmp",zpoolName="backuppool"}
+      value: 4
+    - labels: test:pool_state{instance="100.114.236.88",job="truenas_snmp",zpoolName="boot-pool"}
+      value: 4
+    - labels: test:pool_state{instance="100.113.107.95",job="truenas_snmp",zpoolName="boot-pool"}
+      value: 4
+- name: faulted
+  interval: 15s
+  input_series:
+  - series: up{job="truenas_snmp",instance="100.114.236.88"}
+    values: 1+0x5
+  - series: zpoolHealthStr{job="truenas_snmp",instance="100.114.236.88",zpoolName="mainpool",zpoolHealthStr="FAULTED"}
+    values: 1+0x5
+  promql_expr_test:
+  - expr: test:pool_state
+    eval_time: 1m
+    exp_samples:
+    - labels: test:pool_state{instance="100.114.236.88",job="truenas_snmp",zpoolName="mainpool"}
+      value: 3
+    - labels: test:pool_state{instance="100.113.107.95",job="truenas_snmp",zpoolName="backuppool"}
+      value: 4
+    - labels: test:pool_state{instance="100.114.236.88",job="truenas_snmp",zpoolName="boot-pool"}
+      value: 4
+    - labels: test:pool_state{instance="100.113.107.95",job="truenas_snmp",zpoolName="boot-pool"}
+      value: 4
+- name: offline
+  interval: 15s
+  input_series:
+  - series: up{job="truenas_snmp",instance="100.114.236.88"}
+    values: 1+0x5
+  - series: zpoolHealthStr{job="truenas_snmp",instance="100.114.236.88",zpoolName="mainpool",zpoolHealthStr="OFFLINE"}
+    values: 1+0x5
+  promql_expr_test:
+  - expr: test:pool_state
+    eval_time: 1m
+    exp_samples:
+    - labels: test:pool_state{instance="100.114.236.88",job="truenas_snmp",zpoolName="mainpool"}
+      value: 3
+    - labels: test:pool_state{instance="100.113.107.95",job="truenas_snmp",zpoolName="backuppool"}
+      value: 4
+    - labels: test:pool_state{instance="100.114.236.88",job="truenas_snmp",zpoolName="boot-pool"}
+      value: 4
+    - labels: test:pool_state{instance="100.113.107.95",job="truenas_snmp",zpoolName="boot-pool"}
+      value: 4
+- name: suspended
+  interval: 15s
+  input_series:
+  - series: up{job="truenas_snmp",instance="100.114.236.88"}
+    values: 1+0x5
+  - series: zpoolHealthStr{job="truenas_snmp",instance="100.114.236.88",zpoolName="mainpool",zpoolHealthStr="SUSPENDED"}
+    values: 1+0x5
+  promql_expr_test:
+  - expr: test:pool_state
+    eval_time: 1m
+    exp_samples:
+    - labels: test:pool_state{instance="100.114.236.88",job="truenas_snmp",zpoolName="mainpool"}
+      value: 3
+    - labels: test:pool_state{instance="100.113.107.95",job="truenas_snmp",zpoolName="backuppool"}
+      value: 4
+    - labels: test:pool_state{instance="100.114.236.88",job="truenas_snmp",zpoolName="boot-pool"}
+      value: 4
+    - labels: test:pool_state{instance="100.113.107.95",job="truenas_snmp",zpoolName="boot-pool"}
+      value: 4
+- name: scrape_down
+  interval: 15s
+  input_series:
+  - series: up{job="truenas_snmp",instance="100.114.236.88"}
+    values: 0+0x5
+  - series: zpoolHealthStr{job="truenas_snmp",instance="100.114.236.88",zpoolName="mainpool",zpoolHealthStr="ONLINE"}
+    values: 1+0x5
+  promql_expr_test:
+  - expr: test:pool_state
+    eval_time: 1m
+    exp_samples:
+    - labels: test:pool_state{instance="100.114.236.88",job="truenas_snmp",zpoolName="mainpool"}
+      value: 4
+    - labels: test:pool_state{instance="100.113.107.95",job="truenas_snmp",zpoolName="backuppool"}
+      value: 4
+    - labels: test:pool_state{instance="100.114.236.88",job="truenas_snmp",zpoolName="boot-pool"}
+      value: 4
+    - labels: test:pool_state{instance="100.113.107.95",job="truenas_snmp",zpoolName="boot-pool"}
+      value: 4
+- name: health_missing
+  interval: 15s
+  input_series:
+  - series: up{job="truenas_snmp",instance="100.114.236.88"}
+    values: 1+0x5
+  promql_expr_test:
+  - expr: test:pool_state
+    eval_time: 1m
+    exp_samples:
+    - labels: test:pool_state{instance="100.114.236.88",job="truenas_snmp",zpoolName="mainpool"}
+      value: 4
+    - labels: test:pool_state{instance="100.113.107.95",job="truenas_snmp",zpoolName="backuppool"}
+      value: 4
+    - labels: test:pool_state{instance="100.114.236.88",job="truenas_snmp",zpoolName="boot-pool"}
+      value: 4
+    - labels: test:pool_state{instance="100.113.107.95",job="truenas_snmp",zpoolName="boot-pool"}
+      value: 4
