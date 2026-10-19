@@ -1,5 +1,7 @@
 # 第七章　Rocky Linux 9 監控 VM 從零建置
 
+目前預設 Dashboard 的兩個容量面板已還原為既有 hrStorage 根掛載點統計；其餘健康／採集面板維持。下列 zfs USED／AVAILABLE 採集與容量告警為完整建置流程的一部分，但現場既有 NAS 尚未確認成功切換該命令。既有主機只需恢復容量顯示時，匯入目前 JSON 即可，不需重跑本指南。口徑與限制詳見 dashboard-panels.md 開頭。
+
 本文件整合本專案實作及 2026-10-19 的修正。全新 VM 依序執行一次即可；既有 VM 更新參閱 [zfs-failure-test.md](zfs-failure-test.md)，不要將兩種流程混用。
 
 既有主機遇到容量空白且 deploy-zfs-members.py 因缺少成員指標而還原時，改用該文件的「既有 VM：容量更新被成員檢查阻擋」流程與 deploy-zfs-capacity.py。不要為了修容量而重建 Grafana 或重新載入全部告警。

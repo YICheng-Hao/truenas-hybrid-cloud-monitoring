@@ -4,7 +4,9 @@
 
 從零開始重建 Rocky Linux 9 監控 VM，請依 [完整建置指南](docs/monitoring-vm-from-zero.md) 的 7.1～7.12 順序操作。指南已彙整套件、Tailscale、兩站 SNMP、S3 IAM、Receiver Token、Prometheus、Grafana、九條告警、十面板及雙管道通知驗證。
 
-容量已修正為 zfs list 的池根資料集 USED／AVAILABLE，總資料空間為兩者相加。舊版約 3 TB 是含 RAID-Z2 同位元空間的原始磁碟總量，不再用來代表可用資料容量。TrueNAS 的 extend zfs_capacity 命令也必須一併更新，詳見指南 7.3。
+目前預設 Dashboard 的兩個容量面板已還原為原先 hrStorage 根掛載點查詢，讓現有主機恢復使用既有資料來源；其餘健康與採集面板未改動。匯入同 UID 並覆寫即可，不需要執行容量更新腳本。掛載點已用可能只反映根資料集自身，不能稱為含全部子資料集與快照的整池用量。
+
+zfs USED／AVAILABLE 採集流程仍保留在程式與從零指南中，但現場 NAS 持續回傳舊 zpool 格式，尚未確認此新流程在使用者兩站成功。約 3 TB 的 zpool 原始容量也不能直接稱為 RAID-Z2 可用資料容量；暫不要求為了恢復顯示繼續變更 NAS 設定。
 
 既有 VM 只修容量顯示時，使用 [容量專用更新腳本](scripts/deploy-zfs-capacity.py)，步驟見 [容量故障排除](docs/zfs-failure-test.md#既有-vm容量更新被成員檢查阻擋)。它不依賴成員指標、不改告警、不重啟 Grafana，會驗證兩站容量後才保留更新。完整 deploy-zfs-members.py 的成員檢查失敗時會還原設定，不代表新容量已完成部署。
 

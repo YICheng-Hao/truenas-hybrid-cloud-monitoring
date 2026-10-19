@@ -1,5 +1,13 @@
 # Grafana 十個面板用途
 
+## 目前預設容量面板：還原既有查詢
+
+目前 grafana/TrueNAS_Hybrid_Cloud.json 的 A、B 容量面板已還原為原先 hrStorageUsed／hrStorageSize／hrStorageAllocationUnits，分別查詢 /mnt/mainpool 與 /mnt/backuppool。顯示名稱為「根掛載點容量」，三個欄位是「掛載點已使用、掛載點可用、掛載點總額」。其餘八個面板維持不變，包含池與成員的綜合健康。
+
+此為現有資料來源的顯示還原，不宣稱已完成 zfsUsablePool 新指標部署。根掛載點已使用可能不包含所有子資料集及快照；不要用該數字代表整池資料用量。恢復面板時只需匯入同 UID 並覆寫，不要重跑監控 VM 或 TrueNAS 部署腳本。
+
+以下 zfs USED／AVAILABLE 的容量說明屬先前規劃與採集流程參考，目前預設容量面板已採上面的還原方式。
+
 | 面板 | 用途 | 判讀限制 |
 |---|---|---|
 | A／B ZFS 綜合健康 | 同時查看兩站資料池、boot-pool 與成員狀態 | 成員故障定位仍需 zpool status -P |

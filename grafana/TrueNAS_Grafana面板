@@ -15,7 +15,7 @@
       }
     ]
   },
-  "description": "10 個面板。健康同時檢查池與成員；容量使用 zfs list 池根資料集 USED／AVAILABLE，總資料空間為兩者相加，不再顯示含 parity 的原始磁碟總量。",
+  "description": "容量面板還原至原有 hrStorage 根掛載點統計；其餘健康、告警相關顯示維持。根掛載點已用不代表全部子資料集與快照用量。",
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
@@ -350,7 +350,7 @@
         "type": "prometheus",
         "uid": "${DS_PROMETHEUS}"
       },
-      "description": "來源為 zfs list -Hp -o name,used,available 的池根資料集。已使用包含子資料集、快照及保留空間；目前可用反映 ZFS 的資料可用空間，兩者相加為本面板總資料空間。不是含 parity 的 zpool SIZE，也不保證等於個別 SMB 資料集有配額時的可用額度。",
+      "description": "還原原本 HOST-RESOURCES-MIB 的 /mnt/mainpool 掛載點統計。已使用數值可能僅反映根資料集自身；不把它當成含全部子資料集及快照的整池用量。此面板沿用原有 hrStorage 指標，不需要 zfsUsablePool 或 zfsDataPool。",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -360,7 +360,7 @@
           "decimals": 2,
           "mappings": [],
           "min": 0,
-          "noValue": "尚無池容量指標",
+          "noValue": "掛載點資料無法取得",
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -380,7 +380,7 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "已使用"
+              "options": "掛載點已使用"
             },
             "properties": [
               {
@@ -395,7 +395,7 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "目前可用"
+              "options": "掛載點可用"
             },
             "properties": [
               {
@@ -410,7 +410,7 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "總資料空間"
+              "options": "掛載點總額"
             },
             "properties": [
               {
@@ -467,9 +467,9 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "zfsUsablePoolUsedBytes{job=\"truenas_snmp\",instance=\"100.114.236.88\"}",
+          "expr": "hrStorageUsed{job=\"truenas_snmp\",instance=\"100.114.236.88\",hrStorageDescr=\"/mnt/mainpool\"} * hrStorageAllocationUnits{job=\"truenas_snmp\",instance=\"100.114.236.88\",hrStorageDescr=\"/mnt/mainpool\"}",
           "instant": true,
-          "legendFormat": "已使用",
+          "legendFormat": "掛載點已使用",
           "range": false,
           "refId": "A"
         },
@@ -479,9 +479,9 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "zfsUsablePoolAvailableBytes{job=\"truenas_snmp\",instance=\"100.114.236.88\"}",
+          "expr": "(hrStorageSize{job=\"truenas_snmp\",instance=\"100.114.236.88\",hrStorageDescr=\"/mnt/mainpool\"} - hrStorageUsed{job=\"truenas_snmp\",instance=\"100.114.236.88\",hrStorageDescr=\"/mnt/mainpool\"}) * hrStorageAllocationUnits{job=\"truenas_snmp\",instance=\"100.114.236.88\",hrStorageDescr=\"/mnt/mainpool\"}",
           "instant": true,
-          "legendFormat": "目前可用",
+          "legendFormat": "掛載點可用",
           "range": false,
           "refId": "B"
         },
@@ -491,14 +491,14 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "(zfsUsablePoolUsedBytes{job=\"truenas_snmp\",instance=\"100.114.236.88\"} + zfsUsablePoolAvailableBytes{job=\"truenas_snmp\",instance=\"100.114.236.88\"})",
+          "expr": "hrStorageSize{job=\"truenas_snmp\",instance=\"100.114.236.88\",hrStorageDescr=\"/mnt/mainpool\"} * hrStorageAllocationUnits{job=\"truenas_snmp\",instance=\"100.114.236.88\",hrStorageDescr=\"/mnt/mainpool\"}",
           "instant": true,
-          "legendFormat": "總資料空間",
+          "legendFormat": "掛載點總額",
           "range": false,
           "refId": "C"
         }
       ],
-      "title": "A 站 ZFS 資料空間（RAID-Z2）",
+      "title": "A 站根掛載點容量（mainpool）",
       "type": "bargauge"
     },
     {
@@ -506,7 +506,7 @@
         "type": "prometheus",
         "uid": "${DS_PROMETHEUS}"
       },
-      "description": "來源為 zfs list -Hp -o name,used,available 的池根資料集。已使用包含子資料集、快照及保留空間；目前可用反映 ZFS 的資料可用空間，兩者相加為本面板總資料空間。不是含 parity 的 zpool SIZE，也不保證等於個別 SMB 資料集有配額時的可用額度。",
+      "description": "還原原本 HOST-RESOURCES-MIB 的 /mnt/backuppool 掛載點統計。已使用數值可能僅反映根資料集自身；不把它當成含全部子資料集及快照的整池用量。此面板沿用原有 hrStorage 指標，不需要 zfsUsablePool 或 zfsDataPool。",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -516,7 +516,7 @@
           "decimals": 2,
           "mappings": [],
           "min": 0,
-          "noValue": "尚無池容量指標",
+          "noValue": "掛載點資料無法取得",
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -536,7 +536,7 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "已使用"
+              "options": "掛載點已使用"
             },
             "properties": [
               {
@@ -551,7 +551,7 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "目前可用"
+              "options": "掛載點可用"
             },
             "properties": [
               {
@@ -566,7 +566,7 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "總資料空間"
+              "options": "掛載點總額"
             },
             "properties": [
               {
@@ -623,9 +623,9 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "zfsUsablePoolUsedBytes{job=\"truenas_snmp\",instance=\"100.113.107.95\"}",
+          "expr": "hrStorageUsed{job=\"truenas_snmp\",instance=\"100.113.107.95\",hrStorageDescr=\"/mnt/backuppool\"} * hrStorageAllocationUnits{job=\"truenas_snmp\",instance=\"100.113.107.95\",hrStorageDescr=\"/mnt/backuppool\"}",
           "instant": true,
-          "legendFormat": "已使用",
+          "legendFormat": "掛載點已使用",
           "range": false,
           "refId": "A"
         },
@@ -635,9 +635,9 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "zfsUsablePoolAvailableBytes{job=\"truenas_snmp\",instance=\"100.113.107.95\"}",
+          "expr": "(hrStorageSize{job=\"truenas_snmp\",instance=\"100.113.107.95\",hrStorageDescr=\"/mnt/backuppool\"} - hrStorageUsed{job=\"truenas_snmp\",instance=\"100.113.107.95\",hrStorageDescr=\"/mnt/backuppool\"}) * hrStorageAllocationUnits{job=\"truenas_snmp\",instance=\"100.113.107.95\",hrStorageDescr=\"/mnt/backuppool\"}",
           "instant": true,
-          "legendFormat": "目前可用",
+          "legendFormat": "掛載點可用",
           "range": false,
           "refId": "B"
         },
@@ -647,14 +647,14 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "(zfsUsablePoolUsedBytes{job=\"truenas_snmp\",instance=\"100.113.107.95\"} + zfsUsablePoolAvailableBytes{job=\"truenas_snmp\",instance=\"100.113.107.95\"})",
+          "expr": "hrStorageSize{job=\"truenas_snmp\",instance=\"100.113.107.95\",hrStorageDescr=\"/mnt/backuppool\"} * hrStorageAllocationUnits{job=\"truenas_snmp\",instance=\"100.113.107.95\",hrStorageDescr=\"/mnt/backuppool\"}",
           "instant": true,
-          "legendFormat": "總資料空間",
+          "legendFormat": "掛載點總額",
           "range": false,
           "refId": "C"
         }
       ],
-      "title": "B 站 ZFS 資料空間（RAID-Z2）",
+      "title": "B 站根掛載點容量（backuppool）",
       "type": "bargauge"
     },
     {
@@ -1268,7 +1268,7 @@
   "timezone": "Asia/Taipei",
   "title": "TrueNAS 混合雲｜ZFS 成員・容量・備份監控",
   "uid": "truenas321-capacity-cloudsync-vm",
-  "version": 3,
+  "version": 4,
   "weekStart": "",
   "__inputs": [
     {
