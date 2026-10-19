@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Fresh Rocky Linux 9/10 VM setup. Uses the confirmed hrStorage dashboard."""
 import argparse
+import base64
 import copy
 import getpass
 import hashlib
@@ -224,9 +225,17 @@ def release(repo, version, binaries, dest, work):
                 raise RuntimeError('發行版缺少 ' + binary)
             target = dest/binary
             target.parent.mkdir(parents=True,exist_ok=True)
-            with target.open('wb') as stream:
-                shutil.copyfileobj(member, stream)
-            target.chmod(0o755)
+            # Replace the inode: overwriting a running executable raises ETXTBSY.
+            fd, temporary = tempfile.mkstemp(prefix='.' + binary + '-', dir=target.parent)
+            try:
+                with os.fdopen(fd, 'wb') as stream:
+                    shutil.copyfileobj(member, stream)
+                    stream.flush()
+                    os.fsync(stream.fileno())
+                os.chmod(temporary, 0o755)
+                os.replace(temporary, target)
+            finally:
+                Path(temporary).unlink(missing_ok=True)
         if repo == 'snmp_exporter':
             return yaml.safe_load(tar.extractfile(prefix+'snmp.yml').read())
         for member in tar.getmembers():
@@ -262,6 +271,32 @@ def wait_ready(url):
             time.sleep(2)
     raise RuntimeError('服務未就緒：'+url)
 
+def verify_grafana(c):
+    """Loading YAML is insufficient: require a working datasource and evaluated rules."""
+    auth = base64.b64encode(('admin:' + c['grafana_admin_password']).encode()).decode()
+    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+    def get(path):
+        req = urllib.request.Request('http://127.0.0.1:3000' + path,
+                                     headers={'Authorization': 'Basic ' + auth})
+        with opener.open(req, timeout=20) as response:
+            return json.load(response)
+    health = get('/api/datasources/uid/' + UID + '/health')
+    if health.get('status') != 'OK':
+        raise RuntimeError('Grafana Prometheus 資料源健康檢查失敗：' + str(health.get('message')))
+    for attempt in range(60):
+        groups = get('/api/prometheus/grafana/api/v1/rules')['data']['groups']
+        rules = [rule for group in groups for rule in group['rules']]
+        failures = [rule for rule in rules if rule.get('health') == 'error' or rule.get('lastError')]
+        if failures:
+            raise RuntimeError('Grafana 規則評估失敗：' + '; '.join(
+                str(rule.get('name')) + ': ' + str(rule.get('lastError')) for rule in failures))
+        if len(rules) == 9 and all(rule.get('lastEvaluation') and
+                not rule['lastEvaluation'].startswith('0001') for rule in rules):
+            print('Grafana：資料源正常；九條規則已實際評估，沒有評估錯誤', flush=True)
+            return
+        time.sleep(3)
+    raise RuntimeError('Grafana 九條規則尚未完成實際評估；請查看 Alert rules 與 grafana-server 日誌')
+
 def verify(c, ts_ip):
     wait_ready('http://127.0.0.1:9090/-/ready')
     wait_ready('http://127.0.0.1:3000/api/health')
@@ -289,6 +324,7 @@ def verify(c, ts_ip):
         if not members or float(members[0]['value'][1]) not in (0,1) or not exitcode or float(exitcode[0]['value'][1])!=0:
             raise RuntimeError(label+' 站成員來源未就緒；請在該 NAS 設定 extend zfs /usr/sbin/zpool status -P，儲存並重啟 SNMP')
         print(label+' 站：容量與成員指標已由 Prometheus 實際取得',flush=True)
+    verify_grafana(c)
     return True
 
 def main():

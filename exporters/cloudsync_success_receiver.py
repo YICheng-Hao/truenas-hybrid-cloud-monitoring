@@ -69,7 +69,11 @@ class Handler(BaseHTTPRequestHandler):
         if not 0 < n < 1024:
             self.send_error(400)
             return
-        fields = parse_qs(self.rfile.read(n).decode('utf-8'), strict_parsing=True)
+        try:
+            fields = parse_qs(self.rfile.read(n).decode('utf-8'), strict_parsing=True)
+        except (UnicodeDecodeError, ValueError):
+            self.send_error(400, 'Invalid form body')
+            return
         task_id = fields.get('task_id', [''])[0]
         if not re.fullmatch(r'[1-9][0-9]{0,8}', task_id):
             self.send_error(400, 'Invalid task_id')
@@ -91,3 +95,4 @@ if __name__ == '__main__':
         raise SystemExit('CLOUDSYNC_TOKEN must be set to a strong random token (24+ chars)')
     print(f'Listening on {BIND}:{PORT}; persistent state: {STATE}', flush=True)
     ThreadingHTTPServer((BIND, PORT), Handler).serve_forever()
+

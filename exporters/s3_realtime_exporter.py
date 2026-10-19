@@ -34,8 +34,7 @@ def scrape_inventory():
         p = subprocess.run(cmd, env=env, capture_output=True, text=True, timeout=TIMEOUT, check=False)
         if p.returncode != 0:
             raise RuntimeError(p.stderr.strip() or 'AWS CLI returned nonzero exit status')
-        status = 1
-        total, objects = 0, 0
+        total, objects = None, None
         latest = 0
         for row in p.stdout.splitlines():
             s = row.strip()
@@ -49,7 +48,12 @@ def scrape_inventory():
                     latest = max(latest, ts)
                 except ValueError:
                     pass
+        if total is None or objects is None or total < 0 or objects < 0:
+            raise ValueError('AWS CLI summary is missing or invalid')
+        status = 1
     except (OSError, RuntimeError, subprocess.TimeoutExpired, ValueError) as error:
+        status = 0
+        total = objects = latest = math.nan
         print(f'S3 inventory failed: {error}', flush=True)
     elapsed = time.monotonic() - start
     estimate = total / 1_000_000_000 * PRICE if status else math.nan
@@ -81,3 +85,4 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(content)
 if __name__ == '__main__':
     ThreadingHTTPServer(('127.0.0.1', 9107), Handler).serve_forever()
+
