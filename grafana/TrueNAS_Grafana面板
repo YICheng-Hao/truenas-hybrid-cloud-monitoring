@@ -15,7 +15,7 @@
       }
     ]
   },
-  "description": "極簡直覺版：移除漸層、圖示與多餘文字，以平塗橫條圖與半圓儀表呈現「已使用 / 總容量」，全畫面僅保留 10 個核心面板。 ｜ 新VM專用：Prometheus 資料來源可於匯入時選擇；S3 9107 適配 localhost 與 127.0.0.1；hrStorage 是掛載點統計，必須與 TrueNAS ZFS 原生可用容量核對。",
+  "description": "空間使用率、儲存池健康與採集連線分開呈現。健康狀態以 truenas_zfs 的 zpoolHealthStr 及本次採集狀態判讀；無資料不等同正常。",
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
@@ -103,7 +103,7 @@
       },
       "gridPos": {
         "h": 10,
-        "w": 7,
+        "w": 5,
         "x": 0,
         "y": 0
       },
@@ -259,8 +259,8 @@
       },
       "gridPos": {
         "h": 10,
-        "w": 7,
-        "x": 7,
+        "w": 5,
+        "x": 5,
         "y": 0
       },
       "id": 102,
@@ -339,7 +339,7 @@
         "type": "prometheus",
         "uid": "${DS_PROMETHEUS}"
       },
-      "description": "比較兩個掛載點的 hrStorageUsed/hrStorageSize（標準 SNMP），70%/85% 是示範警戒線；需與 TrueNAS Storage 畫面核對資料準確性，特別是顯示 0.0% 時。",
+      "description": "已用空間 ÷ 總空間 × 100%。例如 2 TiB 使用 1 TiB 即 50%。不是 RAID 健康、CPU 負載或 A/B 複寫完成率。70% 橘色、85% 紅色，僅視覺提示。",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -373,8 +373,8 @@
       },
       "gridPos": {
         "h": 10,
-        "w": 6,
-        "x": 14,
+        "w": 4,
+        "x": 10,
         "y": 0
       },
       "id": 104,
@@ -424,7 +424,7 @@
           "refId": "B"
         }
       ],
-      "title": "A / B 容量使用率",
+      "title": "A／B 空間使用率（%）",
       "type": "gauge"
     },
     {
@@ -432,7 +432,154 @@
         "type": "prometheus",
         "uid": "${DS_PROMETHEUS}"
       },
-      "description": "A/B 顯示 Prometheus SNMP Targets 可抓取；S3 顯示 9107 Exporter 最近一次 S3 API 列舉是否成功。這些訊號不是 Cloud Sync 或 ZFS Replication 的最終成功保證。",
+      "description": "每個預期儲存池：1 ONLINE、2 DEGRADED、3 其他非 ONLINE 狀態、4 無資料或採集失敗。其他異常的實際狀態請查看 zpoolHealthStr 標籤及 TrueNAS zpool status。重建進度不是這個指標。",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "1": {
+                  "text": "ONLINE 正常",
+                  "color": "#73BF69",
+                  "index": 0
+                },
+                "2": {
+                  "text": "DEGRADED 降級",
+                  "color": "#FF9830",
+                  "index": 1
+                },
+                "3": {
+                  "text": "異常（請查實際狀態）",
+                  "color": "#F2495C",
+                  "index": 2
+                },
+                "4": {
+                  "text": "無資料／採集失敗",
+                  "color": "#8F3BB8",
+                  "index": 3
+                }
+              }
+            }
+          ],
+          "noValue": "未知／無資料",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#73BF69",
+                "value": null
+              },
+              {
+                "color": "#FF9830",
+                "value": 2
+              },
+              {
+                "color": "#F2495C",
+                "value": 3
+              },
+              {
+                "color": "#8F3BB8",
+                "value": 4
+              }
+            ]
+          },
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 6,
+        "x": 14,
+        "y": 0
+      },
+      "id": 111,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "horizontal",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "text": {
+          "titleSize": 14,
+          "valueSize": 18
+        },
+        "textMode": "value_and_name",
+        "wideLayout": true
+      },
+      "pluginVersion": "11.5.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "editorMode": "code",
+          "expr": "(max by (job, instance, zpoolName) ((zpoolHealthStr{job=\"truenas_snmp\",instance=\"100.114.236.88\",zpoolName=\"mainpool\",zpoolHealthStr=\"ONLINE\"} == 1) or (zpoolHealthStr{job=\"truenas_snmp\",instance=\"100.114.236.88\",zpoolName=\"mainpool\",zpoolHealthStr=\"DEGRADED\"} == 1) * 2 or (zpoolHealthStr{job=\"truenas_snmp\",instance=\"100.114.236.88\",zpoolName=\"mainpool\",zpoolHealthStr!~\"ONLINE|DEGRADED\"} == 1) * 3) and on (instance) (up{job=\"truenas_snmp\"} == 1)) or on (job, instance, zpoolName) (label_replace(label_replace(label_replace(vector(4), \"job\", \"truenas_snmp\", \"\", \".*\"), \"instance\", \"100.114.236.88\", \"\", \".*\"), \"zpoolName\", \"mainpool\", \"\", \".*\"))",
+          "instant": true,
+          "legendFormat": "A 站 mainpool",
+          "range": false,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "editorMode": "code",
+          "expr": "(max by (job, instance, zpoolName) ((zpoolHealthStr{job=\"truenas_snmp\",instance=\"100.113.107.95\",zpoolName=\"backuppool\",zpoolHealthStr=\"ONLINE\"} == 1) or (zpoolHealthStr{job=\"truenas_snmp\",instance=\"100.113.107.95\",zpoolName=\"backuppool\",zpoolHealthStr=\"DEGRADED\"} == 1) * 2 or (zpoolHealthStr{job=\"truenas_snmp\",instance=\"100.113.107.95\",zpoolName=\"backuppool\",zpoolHealthStr!~\"ONLINE|DEGRADED\"} == 1) * 3) and on (instance) (up{job=\"truenas_snmp\"} == 1)) or on (job, instance, zpoolName) (label_replace(label_replace(label_replace(vector(4), \"job\", \"truenas_snmp\", \"\", \".*\"), \"instance\", \"100.113.107.95\", \"\", \".*\"), \"zpoolName\", \"backuppool\", \"\", \".*\"))",
+          "instant": true,
+          "legendFormat": "B 站 backuppool",
+          "range": false,
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "editorMode": "code",
+          "expr": "(max by (job, instance, zpoolName) ((zpoolHealthStr{job=\"truenas_snmp\",instance=\"100.114.236.88\",zpoolName=\"boot-pool\",zpoolHealthStr=\"ONLINE\"} == 1) or (zpoolHealthStr{job=\"truenas_snmp\",instance=\"100.114.236.88\",zpoolName=\"boot-pool\",zpoolHealthStr=\"DEGRADED\"} == 1) * 2 or (zpoolHealthStr{job=\"truenas_snmp\",instance=\"100.114.236.88\",zpoolName=\"boot-pool\",zpoolHealthStr!~\"ONLINE|DEGRADED\"} == 1) * 3) and on (instance) (up{job=\"truenas_snmp\"} == 1)) or on (job, instance, zpoolName) (label_replace(label_replace(label_replace(vector(4), \"job\", \"truenas_snmp\", \"\", \".*\"), \"instance\", \"100.114.236.88\", \"\", \".*\"), \"zpoolName\", \"boot-pool\", \"\", \".*\"))",
+          "instant": true,
+          "legendFormat": "A 站 boot-pool",
+          "range": false,
+          "refId": "C"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "editorMode": "code",
+          "expr": "(max by (job, instance, zpoolName) ((zpoolHealthStr{job=\"truenas_snmp\",instance=\"100.113.107.95\",zpoolName=\"boot-pool\",zpoolHealthStr=\"ONLINE\"} == 1) or (zpoolHealthStr{job=\"truenas_snmp\",instance=\"100.113.107.95\",zpoolName=\"boot-pool\",zpoolHealthStr=\"DEGRADED\"} == 1) * 2 or (zpoolHealthStr{job=\"truenas_snmp\",instance=\"100.113.107.95\",zpoolName=\"boot-pool\",zpoolHealthStr!~\"ONLINE|DEGRADED\"} == 1) * 3) and on (instance) (up{job=\"truenas_snmp\"} == 1)) or on (job, instance, zpoolName) (label_replace(label_replace(label_replace(vector(4), \"job\", \"truenas_snmp\", \"\", \".*\"), \"instance\", \"100.113.107.95\", \"\", \".*\"), \"zpoolName\", \"boot-pool\", \"\", \".*\"))",
+          "instant": true,
+          "legendFormat": "B 站 boot-pool",
+          "range": false,
+          "refId": "D"
+        }
+      ],
+      "title": "ZFS 儲存池健康狀態",
+      "type": "stat",
+      "transformations": []
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "description": "NAS 的 up 表示 SNMP 採集成功，不保證磁碟健康或 SMB 服務正常；S3 API 表示最近清單查詢成功，不表示備份完成。",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -509,7 +656,7 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "up{job=\"truenas_snmp\",instance=\"100.114.236.88\"}",
+          "expr": "up{job=\"truenas_snmp\",instance=\"100.114.236.88\"} or on () vector(0)",
           "instant": true,
           "legendFormat": "TrueNAS A",
           "range": false,
@@ -521,7 +668,7 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "up{job=\"truenas_snmp\",instance=\"100.113.107.95\"}",
+          "expr": "up{job=\"truenas_snmp\",instance=\"100.113.107.95\"} or on () vector(0)",
           "instant": true,
           "legendFormat": "TrueNAS B",
           "range": false,
@@ -533,14 +680,14 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "aws_s3_bucket_health_status{job=\"aws_s3\",instance=~\"(localhost|127[.]0[.]0[.]1):9107\",bucket_name=\"truenas-backup-myhome-2026\"}",
+          "expr": "min(aws_s3_bucket_health_status{job=\"aws_s3\",bucket_name=\"truenas-backup-myhome-2026\"}) * on () min(up{job=\"aws_s3\"}) or on () vector(0)",
           "instant": true,
           "legendFormat": "S3 API",
           "range": false,
           "refId": "C"
         }
       ],
-      "title": "監控連線狀態",
+      "title": "監控採集／API 狀態",
       "type": "stat"
     },
     {
@@ -578,7 +725,7 @@
               "type": "linear"
             },
             "showPoints": "never",
-            "spanNulls": true,
+            "spanNulls": false,
             "stacking": {
               "group": "A",
               "mode": "none"
@@ -681,7 +828,7 @@
         "type": "prometheus",
         "uid": "${DS_PROMETHEUS}"
       },
-      "description": "觀察兩站 Tailscale 網卡接收 (Rx) 與傳送 (Tx) 速率。",
+      "description": "tailscale0 的流量速率，含複寫及其他走此介面的傳輸，不等同單一複寫任務速度。",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -711,7 +858,7 @@
               "type": "linear"
             },
             "showPoints": "never",
-            "spanNulls": true,
+            "spanNulls": false,
             "stacking": {
               "group": "A",
               "mode": "none"
@@ -808,7 +955,8 @@
           "calcs": [],
           "displayMode": "list",
           "placement": "bottom",
-          "showLegend": true
+          "showLegend": true,
+          "hideEmpty": true
         },
         "tooltip": {
           "hideZeros": false,
@@ -881,7 +1029,7 @@
               "type": "linear"
             },
             "showPoints": "never",
-            "spanNulls": true,
+            "spanNulls": false,
             "stacking": {
               "group": "A",
               "mode": "none"
@@ -984,7 +1132,7 @@
         "type": "prometheus",
         "uid": "${DS_PROMETHEUS}"
       },
-      "description": "TrueNAS Cloud Sync Task 1 的 Post-script 成功通知到達 Rocky Linux Receiver 後，從接收器時間戳計算距今秒數；不是 S3 物件上傳時間，也不代表 B 站 ZFS Replication 已完成。",
+      "description": "距接收器最後收到指定 task_id 成功回報的時間。回報通道故障也會變舊；不是還原時間或已驗證的 RPO。",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -1055,7 +1203,7 @@
           "refId": "A"
         }
       ],
-      "title": "Cloud Sync 距上次成功同步",
+      "title": "Cloud Sync 距成功回報",
       "type": "stat"
     },
     {
@@ -1063,7 +1211,7 @@
         "type": "prometheus",
         "uid": "${DS_PROMETHEUS}"
       },
-      "description": "以 9107 Exporter 的 S3 列舉物件大小與示範費率 0.025 USD/GiB/月推估的「儲存費」，不含版本、請求、傳輸、稅金；非 AWS 真實帳單。",
+      "description": "目前列舉容量乘以單一設定費率；未依各物件儲存類別分層計價，也不含請求、取回與其他費用。",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -1132,7 +1280,7 @@
           "refId": "A"
         }
       ],
-      "title": "S3 預估月費",
+      "title": "S3 儲存費估算（月）",
       "type": "stat"
     },
     {
@@ -1140,7 +1288,7 @@
         "type": "prometheus",
         "uid": "${DS_PROMETHEUS}"
       },
-      "description": "AWS S3 儲存桶 (truenas-backup-myhome-2026) 目前已使用的總容量。",
+      "description": "S3 目前版本物件清單的大小總和；不包含非目前版本及完整帳單項目。",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -1232,7 +1380,7 @@
   },
   "timepicker": {},
   "timezone": "browser",
-  "title": "TrueNAS 3-2-1｜容量・雲端備份・效能監控（新VM匯入版）",
+  "title": "TrueNAS 3-2-1｜空間・ZFS 健康・備份監控",
   "uid": "truenas321-capacity-cloudsync-vm",
   "version": 1,
   "weekStart": "",
