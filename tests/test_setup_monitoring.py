@@ -26,6 +26,11 @@ def base_snmp():
         'modules':{name:{'walk':[],'metrics':[{'name':'fixtureMetric','enum_values':{1:'first',2:'second'}}]} for name in ['if_mib','hrStorage','hrDevice','hrSystem']}}
 
 class SetupContract(unittest.TestCase):
+    def test_supported_rocky_versions(self):
+        for version, major in [('9.6','9'),('10.2','10')]:
+            self.assertEqual(setup.rocky_major('ID="rocky"\nVERSION_ID="'+version+'"\n','x86_64'),major)
+        for osinfo, arch in [('ID=rocky\nVERSION_ID=8.10','x86_64'),('ID=ubuntu\nVERSION_ID=10.2','x86_64'),('ID=rocky\nVERSION_ID=10.2','aarch64')]:
+            with self.assertRaises(ValueError): setup.rocky_major(osinfo, arch)
     def setUp(self):
         self.files=setup.render(fixture(),'100.100.2.1','fixture-token-long-enough-123456',base_snmp())
     def test_capacity_is_stable(self):

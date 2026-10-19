@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fresh Rocky Linux 9 VM setup. Uses the confirmed hrStorage dashboard."""
+"""Fresh Rocky Linux 9/10 VM setup. Uses the confirmed hrStorage dashboard."""
 import argparse
 import copy
 import getpass
@@ -25,6 +25,13 @@ PROJECT = Path(__file__).resolve().parents[1]
 STATE = Path('/var/lib/truenas-monitoring-install')
 UID = 'cg15oru9k9clcd'
 SERVICES = ['snmp_exporter', 's3_realtime_exporter', 'cloudsync-monitor', 'prometheus', 'grafana-server']
+
+def rocky_major(osinfo, architecture):
+    values = dict(line.split('=', 1) for line in osinfo.splitlines() if '=' in line)
+    major = values.get('VERSION_ID', '').strip('"\'').split('.')[0]
+    if values.get('ID', '').strip('"\'') != 'rocky' or major not in ('9', '10') or architecture != 'x86_64':
+        raise ValueError('此安裝腳本限定 Rocky Linux 9／10 x86_64')
+    return major
 
 def run(*args, capture=False):
     if capture:
@@ -297,8 +304,7 @@ def main():
         print('現有服務及容量／成員指標驗證通過；通知收訊與真實 Cloud Sync 回報另行驗證。')
         return
     osinfo=Path('/etc/os-release').read_text()
-    if not re.search(r'^ID="?rocky"?$',osinfo,re.M) or not re.search(r'^VERSION_ID="?9(?:\.|"|$)',osinfo,re.M) or run('uname','-m',capture=True)!='x86_64':
-        raise SystemExit('此安裝腳本限定 Rocky Linux 9 x86_64')
+    major=rocky_major(osinfo, run('uname','-m',capture=True))
     if not (STATE/'managed.json').exists() and any(Path(p).exists() for p in ['/etc/prometheus/prometheus.yml','/var/lib/grafana/grafana.db']):
         raise SystemExit('偵測到未由此腳本建立的監控設定。這是全新 VM 安裝器，已停止，未覆寫現有服務。')
     c=create_input(Path(args.config))
@@ -309,7 +315,7 @@ def main():
     run('systemctl','enable','--now','chronyd','firewalld')
     run('timedatectl','set-timezone','Asia/Taipei')
     if not shutil.which('tailscale'):
-        run('dnf','config-manager','--add-repo','https://pkgs.tailscale.com/stable/rhel/9/tailscale.repo')
+        run('dnf','config-manager','--add-repo',f'https://pkgs.tailscale.com/stable/rhel/{major}/tailscale.repo')
         run('dnf','install','-y','tailscale')
     run('systemctl','enable','--now','tailscaled')
     status=json.loads(run('tailscale','status','--json',capture=True))

@@ -1,10 +1,10 @@
-# 從零建立 Rocky Linux 9 監測 VM
+# 從零建立 Rocky Linux 9／10 監測 VM
 
 本文件使用 2026-10-19 已確認正常的 hrStorage 容量查詢。適用於全新監測 VM；目前正常運作的 VM 不需要重建。安裝器偵測到非本安裝器建立的既有 Prometheus／Grafana 設定時會停止，避免覆寫。
 
 ## 1. 建立 VM 與準備資料
 
-在 VMware 建立 Rocky Linux 9 x86_64 VM，建議 2 vCPU、4 GiB RAM、40 GiB 系統碟，設定管理 IP、預設閘道與 DNS。下列命令以 root 執行；以一般管理帳號登入後執行 `sudo -i` 即可，不必開放 root SSH 登入。
+在 VMware 建立 Rocky Linux 9／10 x86_64 VM，建議 2 vCPU、4 GiB RAM、40 GiB 系統碟，設定管理 IP、預設閘道與 DNS。下列命令以 root 執行；以一般管理帳號登入後執行 `sudo -i` 即可，不必開放 root SSH 登入。
 
 先準備下列資料。安裝器會逐項詢問；密鑰與密碼使用隱藏輸入，不必修改程式碼。
 
@@ -63,10 +63,16 @@ sudo -i
 接著整段貼上：
 
 ```bash
-set -e
-dnf install -y git python3 python3-pyyaml
-git clone https://github.com/YICheng-Hao/truenas-hybrid-cloud-monitoring.git /root/truenas-hybrid-cloud-monitoring
-python3 /root/truenas-hybrid-cloud-monitoring/scripts/setup-monitoring-vm.py
+(
+  set -e
+  dnf install -y git python3 python3-pyyaml
+  if [ -d /root/truenas-hybrid-cloud-monitoring/.git ]; then
+    git -C /root/truenas-hybrid-cloud-monitoring pull --ff-only origin main
+  else
+    git clone https://github.com/YICheng-Hao/truenas-hybrid-cloud-monitoring.git /root/truenas-hybrid-cloud-monitoring
+  fi
+  python3 /root/truenas-hybrid-cloud-monitoring/scripts/setup-monitoring-vm.py
+)
 ```
 
 若儲存庫仍為私人，`git clone` 需要你的 GitHub 帳號與可讀取此儲存庫的存取權；HTTPS 驗證不能使用 GitHub 一般登入密碼。不要將 Token 寫入網址或提交到儲存庫。
@@ -157,3 +163,5 @@ journalctl -u cloudsync-monitor -n 80 --no-pager
 S3 費用是單一儲存單價 × 目前物件容量的估算，不含請求、取回、生命週期、最低保存期與流量費，不等於 AWS 帳單。
 
 本次驗證包含設定產生測試、Prometheus／SNMP 設定檢查，以及 Grafana 13.2.4 真實程序載入九規則、十面板與雙通知聯絡點。尚未在全新 Rocky VM 完成整套系統級安裝演練；現場仍須依步驟 4、5 驗收真實 Cloud Sync 與通知收訊。
+
+Rocky 10 支援修正：依實際主版本選用 Tailscale 官方 RHEL 9／10 軟體源。版本偵測測試涵蓋 Rocky 10.2；尚未在完整 Rocky 10 VM 做端到端安裝驗證。官方來源：https://pkgs.tailscale.com/stable/ 。安裝命令使用子 Shell，失敗時不會因 `set -e` 結束目前 SSH Shell；已有專案目錄時採快轉更新，不重複 clone。

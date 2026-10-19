@@ -4,13 +4,20 @@
 
 ## 從零建立監測 VM
 
-請依 [完整複製貼上教學](docs/monitoring-vm-from-zero.md) 操作。這是全新 Rocky Linux 9 x86_64 VM 安裝流程。目前正常運作的舊 VM 不需要執行安裝器。
+請依 [完整複製貼上教學](docs/monitoring-vm-from-zero.md) 操作。這是全新 Rocky Linux 9／10 x86_64 VM 安裝流程。目前正常運作的舊 VM 不需要執行安裝器。
 
 ```bash
 sudo -i
-dnf install -y git python3 python3-pyyaml
-git clone https://github.com/YICheng-Hao/truenas-hybrid-cloud-monitoring.git /root/truenas-hybrid-cloud-monitoring
-python3 /root/truenas-hybrid-cloud-monitoring/scripts/setup-monitoring-vm.py
+(
+  set -e
+  dnf install -y git python3 python3-pyyaml
+  if [ -d /root/truenas-hybrid-cloud-monitoring/.git ]; then
+    git -C /root/truenas-hybrid-cloud-monitoring pull --ff-only origin main
+  else
+    git clone https://github.com/YICheng-Hao/truenas-hybrid-cloud-monitoring.git /root/truenas-hybrid-cloud-monitoring
+  fi
+  python3 /root/truenas-hybrid-cloud-monitoring/scripts/setup-monitoring-vm.py
+)
 ```
 
 安裝器逐項詢問實際 IP／網段、AWS 監控憑證、Gmail 應用程式密碼、收件地址、Discord Webhook 與 Grafana 密碼，不必自行修改 Python／YAML／JSON。Tailscale 需要完成登入。私人儲存庫仍需 GitHub 讀取權限。
@@ -40,3 +47,5 @@ python3 -m unittest discover -s tests -p 'test_setup_monitoring.py'
 已測試設定產生、容量查詢來源、九條唯一告警 UID、一分鐘評估週期、雙通知與秘密檔權限；已實際啟動 Grafana 13.2.4 驗證載入九條告警、十面板與 Email／Discord 聯絡點。未聲稱已在全新 Rocky VM 完成整套系統級安裝測試；實際 Cloud Sync 與通知收訊須依教學驗收。
 
 禁止上傳 `/root/monitoring-setup.json`、AWS 憑證、Gmail App Password、Discord Webhook 或 Receiver Token。
+
+Rocky 10 支援修正：依實際主版本選用 Tailscale 官方 RHEL 9／10 軟體源。版本偵測測試涵蓋 Rocky 10.2；尚未在完整 Rocky 10 VM 做端到端安裝驗證。官方來源：https://pkgs.tailscale.com/stable/ 。安裝命令使用子 Shell，失敗時不會因 `set -e` 結束目前 SSH Shell；已有專案目錄時採快轉更新，不重複 clone。

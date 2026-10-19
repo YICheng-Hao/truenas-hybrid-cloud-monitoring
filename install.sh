@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 全新 Rocky Linux 9 VM 安裝入口；保護既有未受管監控 VM。
+# 全新 Rocky Linux 9／10 VM 安裝入口；保護既有未受管監控 VM。
 set -euo pipefail
 if [[ $(id -u) -ne 0 ]]; then
   echo '請先執行 sudo -i，再執行本腳本。' >&2
