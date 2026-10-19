@@ -34,7 +34,12 @@ key=(D/'lab-key.pub').read_text().strip()
 ssh=['ssh','-i',str(D/'lab-key'),'-p','2222','-o','StrictHostKeyChecking=no','-o','UserKnownHostsFile=/dev/null','-o','ConnectTimeout=10','-o','ServerAliveInterval=15','-o','ServerAliveCountMax=4','root@127.0.0.1']
 def command(script,log,timeout=1800):
  print('RUN',log.name,flush=True)
- with log.open('w') as out:run(ssh+['bash -s'],input=script,text=True,stdout=out,stderr=subprocess.STDOUT,timeout=timeout)
+ try:
+  with log.open('w') as out:run(ssh+['bash -s'],input=script,text=True,stdout=out,stderr=subprocess.STDOUT,timeout=timeout)
+ except Exception:
+  print('FAILED COMMAND LOG: '+str(log), flush=True)
+  print(log.read_text(errors='replace')[-24000:], flush=True)
+  raise
  print('PASS',log.name,flush=True)
 def wait_ssh(timeout=600):
  until=time.monotonic()+timeout
