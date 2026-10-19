@@ -1,10 +1,31 @@
-# 企業級 NAS 與儲存安全管理方案 — 混合雲監控中心 (Prometheus & Grafana)
+# 企業級 NAS 與儲存安全管理方案 — 混合雲監控中心
 
-本儲存庫收納「企業級 NAS 與儲存安全管理方案建置」專案第七章之 Rocky Linux 9 監控中心程式碼與設定檔：
-- `exporters/s3_realtime_exporter.py`：AWS S3 即時容量、物件數與月費估算 Exporter (`:9107`)
-- `exporters/cloudsync_success_receiver.py`：TrueNAS Cloud Sync 成功回報接收器 (`:9108`)
-- `systemd/`：各監控服務之 Systemd Unit 設定檔（含安全沙箱）
-- `configs/`：Prometheus 四大採集任務設定檔與 Grafana 自動資料源配置
-- `aws-iam/`：AWS IAM 唯讀監控最小權限 Policy JSON
-- `grafana/`：TrueNAS 3-2-1 十面板極簡監控儀表板 JSON
-- `install.sh`：監控中心一鍵部署腳本
+本專案收納 TrueNAS A／B、AWS S3、Prometheus 與 Grafana 的監控程式及第七、八章操作設定。
+
+## 2026-10-19 成員故障監控修正
+
+實測出現「mainpool 整體仍 ONLINE，但兩顆成員磁碟已 FAULTED」。單靠 zpoolHealthStr 會漏報，因此加入 SNMP extend 成員狀態採集。使用者截圖確認 A 站指標為 1，Discord 收到成員異常通知；B 站則收到成員狀態無法取得通知。尚未確認 Email、磁碟更換及重建完成。
+
+- [部署步驟與技術文件修訂](docs/zfs-failure-test.md)
+- [十個面板用途與狀態對照](docs/dashboard-panels.md)
+- [可直接匯入的 Grafana JSON](grafana/TrueNAS_Hybrid_Cloud.json)
+- [成員與容量增量部署腳本](scripts/deploy-zfs-members.py)
+- [SNMP ZFS 模組參考設定](configs/snmp-zfs-modules.yml)
+- [完整九條告警規則](configs/grafana-alerts.yaml)
+- [僅新增兩條成員告警](configs/grafana-zfs-members.yaml)
+- [繁體中文通知模板原始碼](configs/grafana-notification-template.tmpl)
+
+現有監控 VM 使用增量部署流程，不要重跑 install.sh；該安裝腳本會重新產生 Cloud Sync Token。完整九條規則與分開部署的規則檔不能同時載入相同 UID。
+
+| 目錄／檔案 | 用途 |
+|---|---|
+| exporters/s3_realtime_exporter.py | S3 清單容量與月費估算，9107 |
+| exporters/cloudsync_success_receiver.py | Cloud Sync 成功回報與指標，9108 |
+| systemd/ | 監控服務單元 |
+| configs/prometheus.yml | 四個採集工作；truenas_snmp 包含 truenas_zfs |
+| configs/grafana-datasource.yaml | Prometheus UID cg15oru9k9clcd |
+| grafana/ | 十面板 JSON；舊無副檔名路徑保留為相同新版內容 |
+| aws-iam/ | S3 唯讀監控政策 |
+| tests/ | PromQL 狀態測試與 SNMP 文字解析測試 |
+
+本次監控修正僅讀取 ZFS 狀態，不執行 offline、clear、replace 或 scrub。憑證、Token、Webhook 與密碼不應提交到儲存庫。

@@ -1,44 +1,53 @@
 global:
   scrape_interval: 15s
 scrape_configs:
-  # 1. Prometheus 本機自我監控
-  - job_name: 'prometheus'
-    scrape_interval: 5s
-    static_configs:
-      - targets: ['localhost:9090']
-  # 2. 雙站點 TrueNAS 標準 SNMP 監控 (透過本機 127.0.0.1:9116 轉換)
-  - job_name: 'truenas_snmp'
-    scrape_interval: 15s
-    scrape_timeout: 10s
-    metrics_path: /snmp
-    params:
-      auth: [public_v2]
-      module: [if_mib, hrStorage, hrDevice, hrSystem]
-    static_configs:
-      - targets: ['100.114.236.88']
-        labels:
-          nodename: 'TrueNAS_A'
-          role: 'Primary'
-      - targets: ['100.113.107.95']
-        labels:
-          nodename: 'TrueNAS_B'
-          role: 'Backup'
-    relabel_configs:
-      - source_labels: [__address__]
-        target_label: __param_target
-      - source_labels: [__param_target]
-        target_label: instance
-      - target_label: __address__
-        replacement: 127.0.0.1:9116
-  # 3. AWS S3 清單容量與費率估算監控 (:9107，每 5 分鐘抓取一次節省 API 成本)
-  - job_name: 'aws_s3'
-    scrape_interval: 5m
-    scrape_timeout: 30s
-    static_configs:
-      - targets: ['localhost:9107']
-  # 4. TrueNAS Cloud Sync 成功回報接收器 (:9108)
-  - job_name: 'cloudsync_success'
-    scrape_interval: 15s
-    scrape_timeout: 10s
-    static_configs:
-      - targets: ['100.104.101.117:9108']
+- job_name: prometheus
+  scrape_interval: 5s
+  static_configs:
+  - targets:
+    - localhost:9090
+- job_name: truenas_snmp
+  scrape_interval: 15s
+  scrape_timeout: 10s
+  metrics_path: /snmp
+  params:
+    auth:
+    - public_v2
+    module:
+    - if_mib
+    - hrStorage
+    - hrDevice
+    - hrSystem
+    - truenas_zfs
+  static_configs:
+  - targets:
+    - 100.114.236.88
+    labels:
+      nodename: TrueNAS_A
+      role: Primary
+  - targets:
+    - 100.113.107.95
+    labels:
+      nodename: TrueNAS_B
+      role: Backup
+  relabel_configs:
+  - source_labels:
+    - __address__
+    target_label: __param_target
+  - source_labels:
+    - __param_target
+    target_label: instance
+  - target_label: __address__
+    replacement: 127.0.0.1:9116
+- job_name: aws_s3
+  scrape_interval: 5m
+  scrape_timeout: 30s
+  static_configs:
+  - targets:
+    - localhost:9107
+- job_name: cloudsync_success
+  scrape_interval: 15s
+  scrape_timeout: 10s
+  static_configs:
+  - targets:
+    - 100.104.101.117:9108

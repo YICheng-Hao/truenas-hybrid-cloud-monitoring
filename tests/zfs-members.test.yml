@@ -1,0 +1,225 @@
+rule_files:
+- zfs-members.rules.yml
+evaluation_interval: 1m
+tests:
+- interval: 1m
+  input_series:
+  - series: zpoolHealthStr{job="truenas_snmp",instance="100.114.236.88",zpoolName="mainpool",zpoolHealthStr="ONLINE"}
+    values: '1'
+  - series: zpoolHealthStr{job="truenas_snmp",instance="100.114.236.88",zpoolName="boot-pool",zpoolHealthStr="ONLINE"}
+    values: '1'
+  - series: zfsMemberFault{job="truenas_snmp",instance="100.114.236.88"}
+    values: '0'
+  - series: zfsStatusCommandExit{job="truenas_snmp",instance="100.114.236.88"}
+    values: '0'
+  - series: up{job="truenas_snmp",instance="100.114.236.88"}
+    values: '1'
+  promql_expr_test:
+  - expr: node_health
+    eval_time: 0m
+    exp_samples:
+    - labels: node_health
+      value: 0
+  - expr: member_state
+    eval_time: 0m
+    exp_samples:
+    - labels: member_state{instance="100.114.236.88"}
+      value: 0
+    - labels: member_state{instance="100.113.107.95"}
+      value: 2
+- interval: 1m
+  input_series:
+  - series: zpoolHealthStr{job="truenas_snmp",instance="100.114.236.88",zpoolName="mainpool",zpoolHealthStr="DEGRADED"}
+    values: '1'
+  - series: zpoolHealthStr{job="truenas_snmp",instance="100.114.236.88",zpoolName="boot-pool",zpoolHealthStr="ONLINE"}
+    values: '1'
+  - series: zfsMemberFault{job="truenas_snmp",instance="100.114.236.88"}
+    values: '1'
+  - series: zfsStatusCommandExit{job="truenas_snmp",instance="100.114.236.88"}
+    values: '0'
+  - series: up{job="truenas_snmp",instance="100.114.236.88"}
+    values: '1'
+  promql_expr_test:
+  - expr: node_health
+    eval_time: 0m
+    exp_samples:
+    - labels: node_health
+      value: 1
+  - expr: member_state
+    eval_time: 0m
+    exp_samples:
+    - labels: member_state{instance="100.114.236.88"}
+      value: 1
+    - labels: member_state{instance="100.113.107.95"}
+      value: 2
+- interval: 1m
+  input_series:
+  - series: zpoolHealthStr{job="truenas_snmp",instance="100.114.236.88",zpoolName="mainpool",zpoolHealthStr="FAULTED"}
+    values: '1'
+  - series: zpoolHealthStr{job="truenas_snmp",instance="100.114.236.88",zpoolName="boot-pool",zpoolHealthStr="ONLINE"}
+    values: '1'
+  - series: zfsMemberFault{job="truenas_snmp",instance="100.114.236.88"}
+    values: '1'
+  - series: zfsStatusCommandExit{job="truenas_snmp",instance="100.114.236.88"}
+    values: '0'
+  - series: up{job="truenas_snmp",instance="100.114.236.88"}
+    values: '1'
+  promql_expr_test:
+  - expr: node_health
+    eval_time: 0m
+    exp_samples:
+    - labels: node_health
+      value: 2
+  - expr: member_state
+    eval_time: 0m
+    exp_samples:
+    - labels: member_state{instance="100.114.236.88"}
+      value: 1
+    - labels: member_state{instance="100.113.107.95"}
+      value: 2
+- interval: 1m
+  input_series:
+  - series: zpoolHealthStr{job="truenas_snmp",instance="100.114.236.88",zpoolName="mainpool",zpoolHealthStr="ONLINE"}
+    values: '1'
+  - series: zpoolHealthStr{job="truenas_snmp",instance="100.114.236.88",zpoolName="boot-pool",zpoolHealthStr="ONLINE"}
+    values: '1'
+  - series: zfsMemberFault{job="truenas_snmp",instance="100.114.236.88"}
+    values: '1'
+  - series: zfsStatusCommandExit{job="truenas_snmp",instance="100.114.236.88"}
+    values: '0'
+  - series: up{job="truenas_snmp",instance="100.114.236.88"}
+    values: '1'
+  promql_expr_test:
+  - expr: node_health
+    eval_time: 0m
+    exp_samples:
+    - labels: node_health
+      value: 3
+  - expr: member_state
+    eval_time: 0m
+    exp_samples:
+    - labels: member_state{instance="100.114.236.88"}
+      value: 1
+    - labels: member_state{instance="100.113.107.95"}
+      value: 2
+- interval: 1m
+  input_series:
+  - series: zpoolHealthStr{job="truenas_snmp",instance="100.114.236.88",zpoolName="mainpool",zpoolHealthStr="ONLINE"}
+    values: '1'
+  - series: zpoolHealthStr{job="truenas_snmp",instance="100.114.236.88",zpoolName="boot-pool",zpoolHealthStr="ONLINE"}
+    values: '1'
+  - series: zfsStatusCommandExit{job="truenas_snmp",instance="100.114.236.88"}
+    values: '0'
+  - series: up{job="truenas_snmp",instance="100.114.236.88"}
+    values: '1'
+  promql_expr_test:
+  - expr: node_health
+    eval_time: 0m
+    exp_samples:
+    - labels: node_health
+      value: 4
+  - expr: member_state
+    eval_time: 0m
+    exp_samples:
+    - labels: member_state{instance="100.114.236.88"}
+      value: 2
+    - labels: member_state{instance="100.113.107.95"}
+      value: 2
+- interval: 1m
+  input_series:
+  - series: zpoolHealthStr{job="truenas_snmp",instance="100.114.236.88",zpoolName="mainpool",zpoolHealthStr="ONLINE"}
+    values: '1'
+  - series: zpoolHealthStr{job="truenas_snmp",instance="100.114.236.88",zpoolName="boot-pool",zpoolHealthStr="ONLINE"}
+    values: '1'
+  - series: zfsMemberFault{job="truenas_snmp",instance="100.114.236.88"}
+    values: '0'
+  - series: zfsStatusCommandExit{job="truenas_snmp",instance="100.114.236.88"}
+    values: '1'
+  - series: up{job="truenas_snmp",instance="100.114.236.88"}
+    values: '1'
+  promql_expr_test:
+  - expr: node_health
+    eval_time: 0m
+    exp_samples:
+    - labels: node_health
+      value: 4
+  - expr: member_state
+    eval_time: 0m
+    exp_samples:
+    - labels: member_state{instance="100.114.236.88"}
+      value: 2
+    - labels: member_state{instance="100.113.107.95"}
+      value: 2
+- interval: 1m
+  input_series:
+  - series: zpoolHealthStr{job="truenas_snmp",instance="100.114.236.88",zpoolName="mainpool",zpoolHealthStr="ONLINE"}
+    values: '1'
+  - series: zpoolHealthStr{job="truenas_snmp",instance="100.114.236.88",zpoolName="boot-pool",zpoolHealthStr="ONLINE"}
+    values: '1'
+  - series: zfsMemberFault{job="truenas_snmp",instance="100.114.236.88"}
+    values: '0'
+  - series: zfsStatusCommandExit{job="truenas_snmp",instance="100.114.236.88"}
+    values: '0'
+  - series: up{job="truenas_snmp",instance="100.114.236.88"}
+    values: '0'
+  promql_expr_test:
+  - expr: node_health
+    eval_time: 0m
+    exp_samples:
+    - labels: node_health
+      value: 4
+  - expr: member_state
+    eval_time: 0m
+    exp_samples:
+    - labels: member_state{instance="100.114.236.88"}
+      value: 2
+    - labels: member_state{instance="100.113.107.95"}
+      value: 2
+- interval: 1m
+  input_series:
+  - series: zpoolHealthStr{job="truenas_snmp",instance="100.114.236.88",zpoolName="mainpool",zpoolHealthStr="ONLINE"}
+    values: '1'
+  - series: zfsMemberFault{job="truenas_snmp",instance="100.114.236.88"}
+    values: '0'
+  - series: zfsStatusCommandExit{job="truenas_snmp",instance="100.114.236.88"}
+    values: '0'
+  - series: up{job="truenas_snmp",instance="100.114.236.88"}
+    values: '1'
+  promql_expr_test:
+  - expr: node_health
+    eval_time: 0m
+    exp_samples:
+    - labels: node_health
+      value: 4
+  - expr: member_state
+    eval_time: 0m
+    exp_samples:
+    - labels: member_state{instance="100.114.236.88"}
+      value: 0
+    - labels: member_state{instance="100.113.107.95"}
+      value: 2
+- interval: 1m
+  input_series:
+  - series: zpoolHealthStr{job="truenas_snmp",instance="100.114.236.88",zpoolName="mainpool",zpoolHealthStr="ONLINE"}
+    values: '1'
+  - series: zpoolHealthStr{job="truenas_snmp",instance="100.114.236.88",zpoolName="boot-pool",zpoolHealthStr="ONLINE"}
+    values: '1'
+  - series: zfsMemberFault{job="truenas_snmp",instance="100.114.236.88"}
+    values: '2'
+  - series: zfsStatusCommandExit{job="truenas_snmp",instance="100.114.236.88"}
+    values: '0'
+  - series: up{job="truenas_snmp",instance="100.114.236.88"}
+    values: '1'
+  promql_expr_test:
+  - expr: node_health
+    eval_time: 0m
+    exp_samples:
+    - labels: node_health
+      value: 4
+  - expr: member_state
+    eval_time: 0m
+    exp_samples:
+    - labels: member_state{instance="100.114.236.88"}
+      value: 2
+    - labels: member_state{instance="100.113.107.95"}
+      value: 2

@@ -1,0 +1,18 @@
+groups:
+- name: zfs_members
+  rules:
+  - record: node_health
+    expr: (((max(zpoolHealthStr{job="truenas_snmp",instance="100.114.236.88",zpoolName=~"mainpool|boot-pool",zpoolHealthStr!~"ONLINE|DEGRADED"}
+      == 1) * 0 + 2) or on() (max(zpoolHealthStr{job="truenas_snmp",instance="100.114.236.88",zpoolName=~"mainpool|boot-pool",zpoolHealthStr="DEGRADED"}
+      == 1) * 0 + 1) or on() (((max(zfsMemberFault{job="truenas_snmp",instance="100.114.236.88"})
+      == 1) and on() (max(zfsStatusCommandExit{job="truenas_snmp",instance="100.114.236.88"})
+      == 0)) * 0 + 3) or on() (((count(max by(zpoolName) (zpoolHealthStr{job="truenas_snmp",instance="100.114.236.88",zpoolName=~"mainpool|boot-pool",zpoolHealthStr="ONLINE"}
+      == 1)) == 2) and on() (max(zfsMemberFault{job="truenas_snmp",instance="100.114.236.88"})
+      == 0) and on() (max(zfsStatusCommandExit{job="truenas_snmp",instance="100.114.236.88"})
+      == 0)) * 0)) and on() (max(up{job="truenas_snmp",instance="100.114.236.88"})
+      == 1)) or on() vector(4)
+  - record: member_state
+    expr: (max by(instance) (zfsMemberFault{job="truenas_snmp"} and on(instance) (zfsStatusCommandExit{job="truenas_snmp"}
+      == 0) and on(instance) (up{job="truenas_snmp"} == 1))) or on(instance) label_replace(vector(2),
+      "instance", "100.114.236.88", "", ".*") or on(instance) label_replace(vector(2),
+      "instance", "100.113.107.95", "", ".*")
