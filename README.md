@@ -8,6 +8,8 @@
 
 既有 VM 只修容量顯示時，使用 [容量專用更新腳本](scripts/deploy-zfs-capacity.py)，步驟見 [容量故障排除](docs/zfs-failure-test.md#既有-vm容量更新被成員檢查阻擋)。它不依賴成員指標、不改告警、不重啟 Grafana，會驗證兩站容量後才保留更新。完整 deploy-zfs-members.py 的成員檢查失敗時會還原設定，不代表新容量已完成部署。
 
+NAS 回覆仍為舊四數值格式時，先修正該 NAS 的 extend 命令；可使用 [TrueNAS 端設定腳本](scripts/configure-truenas-snmp.py)，須分別在 A、B 的 TrueNAS 本機執行，不能在 Rocky 執行。
+
 ## 2026-10-19 成員故障監控修正
 
 實測出現「mainpool 整體仍 ONLINE，但兩顆成員磁碟已 FAULTED」。單靠 zpoolHealthStr 會漏報，因此加入 SNMP extend 成員狀態採集。使用者截圖確認 A 站指標為 1，Discord 收到成員異常通知；B 站則收到成員狀態無法取得通知。尚未確認 Email、磁碟更換及重建完成。

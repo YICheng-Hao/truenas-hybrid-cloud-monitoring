@@ -144,3 +144,7 @@ python3 /root/deploy-zfs-capacity.py
 容量專用腳本不修改容量門檻規則；若需要更新舊容量告警，應於成員來源確認後完成整合部署，或依 configs/grafana-alerts.yaml 的 alert_zfs_pool_cap_high 設定更新。從零建置的整合九條規則已使用新版資料容量。
 
 本修正另以真正的 snmp_exporter 0.26.0 連到本機模擬 SNMP 回覆，確認 A／B 根資料集數值可輸出、子資料集不重複計算、舊五欄 zpool 格式不被誤認成資料容量。測試程式為 tests/snmp-capacity-smoke.py；這不代表遠端 TrueNAS 設定已自動生效。
+
+若原始 SNMP 回覆仍為「名稱＋SIZE／ALLOC／FREE／CAP 四個數值」，即證明該站仍執行舊 zpool 命令；請先修正 NAS 端，再重跑容量部署，不能只更新 VM。正確的 zfs 命令回覆為「名稱＋USED／AVAILABLE 兩個數值」。
+
+需要直接修正 TrueNAS 25.10 設定時，可在該 NAS 以 root／sudo 執行 scripts/configure-truenas-snmp.py。腳本先確認本機有 mainpool 或 backuppool、備份原附屬參數，再透過 snmp.update 保存兩個 extend，保留其他選項、移除同名重複命令，最後重啟 SNMP 並讀回設定。此腳本必須分別在 A、B TrueNAS 執行，不是在 Rocky 監控 VM。來源設定 API：https://api.truenas.com/v25.10/api_methods_snmp.update.html 。
