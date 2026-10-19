@@ -1,5 +1,3 @@
-*.env
-credentials
-last_success.json
+/_lab/
 __pycache__/
 *.pyc

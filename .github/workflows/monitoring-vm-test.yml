@@ -1,0 +1,52 @@
+name: Monitoring VM integration
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'scripts/setup-monitoring-vm.py'
+      - 'exporters/**'
+      - 'configs/**'
+      - 'systemd/**'
+      - 'tests/**'
+      - '.github/workflows/monitoring-vm-test.yml'
+permissions:
+  contents: read
+jobs:
+  regression:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - run: python3 -m pip install PyYAML
+      - run: python3 -m unittest discover -s tests -p 'test_*.py' -v
+  rocky-vm:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 55
+    strategy:
+      fail-fast: false
+      matrix:
+        rocky: ['9', '10']
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Install hypervisor and test tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y qemu-system-x86 qemu-utils cloud-image-utils openssh-client
+          sudo chmod a+rw /dev/kvm || true
+      - name: Fresh VM, fault/recovery, reinstall and reboot
+        run: python3 tests/integration/run-vm-test.py --major '${{ matrix.rocky }}'
+      - name: Upload evidence (no disks, keys or credentials)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rocky-${{ matrix.rocky }}-test-evidence
+          path: |
+            _lab/summary.json
+            _lab/image-verification.json
+            _lab/round-*/*.log
+            _lab/round-*/acceptance*.json
+            _lab/round-*/notification-events.jsonl
+          retention-days: 14

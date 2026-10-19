@@ -9,6 +9,9 @@
 | 修正後元件測試第一輪 | 27 項 | 全數通過 |
 | 補入執行中二進位重裝的元件測試第二輪 | 28 項 | 全數通過 |
 | 相同 28 項對照 GitHub 基準版 | 28 項 | 3 個失敗、3 個錯誤，成功重現缺陷 |
+| 加入 Grafana 評估驗證後的元件測試 | 31 項 | 全數通過；四輪共 114 次案例執行 |
+| PromQL 測試 | 1 輪／17 個情境 | 全數通過 |
+| 真正 SNMP Exporter 協定測試 | 2 輪 | 首輪驗收誤要求已移除的索引標籤；修正測試後，3 種狀態全部通過 |
 | 主機原生 Grafana + Prometheus 評估 | 1 輪 | 未通過；測試主機禁止 Unix socket，Prometheus 外掛不能啟動 |
 | Rocky 9.8 真實 QEMU VM 完整安裝 | 進行中 | 官方映像 SHA256 已核對，已啟動真實 Rocky 核心與 systemd |
 
@@ -34,3 +37,7 @@ python3 -m unittest discover -s tests -p 'test_*.py' -v
 ```
 
 完整 VM、故障通知、恢復通知、重跑與重新開機結果將在完成後追加；目前不能將本報告引用為「從零建置全部通過」。
+
+## 自動整合測試
+
+已加入 `.github/workflows/monitoring-vm-test.yml` 與 `tests/integration/`。執行器會建立真實 Rocky 9／10 VM，測正式安裝器、合成故障與雙管道通知、重跑及重新開機。工作流程是否通過應以實際執行結果與 artifact 為準；加入工作流程本身不算通過。
