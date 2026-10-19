@@ -22,15 +22,23 @@ def read_url(url):
 
 def build():
     config = yaml.safe_load(snmp.read_text())
-    module = config['modules']['truenas_zfs']
+    module = config['modules'].setdefault('truenas_zfs', {
+        'walk': ['1.3.6.1.4.1.50536.1.1.1.1'], 'metrics': []})
     output_oid = '1.3.6.1.4.1.8072.1.3.2.3.1.2.3.122.102.115'
     result_oid = '1.3.6.1.4.1.8072.1.3.2.3.1.4.3.122.102.115'
-    for oid in [output_oid, result_oid]:
+    capacity_oid = '1.3.6.1.4.1.8072.1.3.2.3.1.2.12.122.102.115.95.99.97.112.97.99.105.116.121'
+    for oid in [output_oid, result_oid, capacity_oid]:
         if oid not in module.setdefault('get', []):
             module['get'].append(oid)
     metrics = module.setdefault('metrics', [])
-    metrics[:] = [m for m in metrics if m['name'] not in ('zfsMemberFault', 'zfsStatusCommandExit')]
+    metrics[:] = [m for m in metrics if m['name'] not in (
+        'zfsMemberFault', 'zfsStatusCommandExit', 'zfsDataPool', 'zpoolHealth', 'zpoolHealthStr')]
     metrics.extend([
+        {'name': 'zpoolHealthStr', 'oid': '1.3.6.1.4.1.50536.1.1.1.1.3', 'type': 'DisplayString',
+         'help': 'TrueNAS reported pool health string',
+         'indexes': [{'labelname': 'zpoolName', 'type': 'gauge'}],
+         'lookups': [{'labels': ['zpoolName'], 'labelname': 'zpoolName',
+                      'oid': '1.3.6.1.4.1.50536.1.1.1.1.2', 'type': 'DisplayString'}]},
         {'name': 'zfsMemberFault', 'oid': output_oid, 'type': 'DisplayString',
          'help': 'ZFS status table: 0 healthy, 1 non-online member or vdev, 2 unrecognized output',
          'regex_extracts': {'': [
@@ -40,6 +48,13 @@ def build():
         {'name': 'zfsStatusCommandExit', 'oid': result_oid, 'type': 'gauge',
          'help': 'Exit status of the SNMP extend zpool command; zero means success'}
     ])
+    # One expected data pool per node. These are physical zpool allocation figures,
+    # including parity/metadata, rather than a dataset's SMB-available capacity.
+    row = r'(?s).*\b(?:mainpool|backuppool)[ \t]+([0-9]+)[ \t]+([0-9]+)[ \t]+([0-9]+)[ \t]+([0-9.]+)%?[^\n]*(?:\n.*)?'
+    metrics.append({'name': 'zfsDataPool', 'oid': capacity_oid, 'type': 'DisplayString',
+        'help': 'Expected data pool physical allocation from zpool list -Hp',
+        'regex_extracts': {suffix: [{'regex': row, 'value': '$' + str(i)}]
+            for i, suffix in enumerate(['SizeBytes', 'AllocatedBytes', 'FreeBytes', 'UsedPercent'], 1)}})
     pc = yaml.safe_load(prom.read_text())
     jobs = [j for j in pc['scrape_configs'] if j['job_name'] == 'truenas_snmp']
     if len(jobs) != 1:
@@ -77,7 +92,9 @@ try:
         raise RuntimeError('A site did not return zfsMemberFault; changes will be rolled back')
     if not re.search(r'^zfsStatusCommandExit(?:\{[^\n]*\})? 0(?:\.0)?$', live, re.M):
         raise RuntimeError('A site zpool command failed; changes will be rolled back')
-    print('\n'.join(line for line in live.splitlines() if line.startswith(('zfsMemberFault', 'zfsStatusCommandExit'))))
+    print('\n'.join(line for line in live.splitlines() if line.startswith(('zfsMemberFault', 'zfsStatusCommandExit', 'zfsDataPool'))))
+    if 'zfsDataPoolSizeBytes ' not in live:
+        print('提醒：A 站尚未回傳池容量，請確認 extend zfs_capacity 已生效。')
     prom.write_text(yaml.safe_dump(pc, sort_keys=False, allow_unicode=True))
     run('/usr/local/bin/promtool', 'check', 'config', str(prom))
     alert.write_text(json.dumps(ac, ensure_ascii=False, indent=2) + '\n')

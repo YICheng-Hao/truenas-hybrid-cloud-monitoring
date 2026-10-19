@@ -1,0 +1,1283 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "description": "10 個面板。綜合健康同時檢查原生池狀態與 SNMP extend 成員狀態；容量使用 zpool list 的實體配置值。2026-10-19 成員故障整合版。",
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "description": "每站同時監測資料池與 boot-pool。DEGRADED 僅在原生池狀態為 DEGRADED 時顯示；池仍 ONLINE 但成員有 FAULTED 等異常時，顯示紅色「成員異常」。成員資料含所有池，不能藉此定位到個別磁碟或特定池；請查看 zpool status -P。",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "ONLINE 正常",
+                  "color": "#73BF69",
+                  "index": 0
+                },
+                "1": {
+                  "text": "DEGRADED 降級",
+                  "color": "#FF9830",
+                  "index": 1
+                },
+                "2": {
+                  "text": "儲存池異常",
+                  "color": "#F2495C",
+                  "index": 2
+                },
+                "3": {
+                  "text": "成員異常／冗餘需檢查",
+                  "color": "#F2495C",
+                  "index": 3
+                },
+                "4": {
+                  "text": "健康資料不完整",
+                  "color": "#B877D9",
+                  "index": 4
+                }
+              }
+            }
+          ],
+          "noValue": "未知／無資料",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1
+              },
+              {
+                "color": "red",
+                "value": 2
+              },
+              {
+                "color": "purple",
+                "value": 4
+              }
+            ]
+          },
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 12,
+        "h": 6
+      },
+      "id": 111,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "horizontal",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "text": {
+          "titleSize": 15,
+          "valueSize": 23
+        },
+        "textMode": "value_and_name",
+        "wideLayout": true
+      },
+      "pluginVersion": "11.5.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "editorMode": "code",
+          "expr": "(((max(zpoolHealthStr{job=\"truenas_snmp\",instance=\"100.114.236.88\",zpoolName=~\"mainpool|boot-pool\",zpoolHealthStr!~\"ONLINE|DEGRADED\"} == 1) * 0 + 2) or on() (max(zpoolHealthStr{job=\"truenas_snmp\",instance=\"100.114.236.88\",zpoolName=~\"mainpool|boot-pool\",zpoolHealthStr=\"DEGRADED\"} == 1) * 0 + 1) or on() (((max(zfsMemberFault{job=\"truenas_snmp\",instance=\"100.114.236.88\"}) == 1) and on() (max(zfsStatusCommandExit{job=\"truenas_snmp\",instance=\"100.114.236.88\"}) == 0)) * 0 + 3) or on() (((count(max by(zpoolName) (zpoolHealthStr{job=\"truenas_snmp\",instance=\"100.114.236.88\",zpoolName=~\"mainpool|boot-pool\",zpoolHealthStr=\"ONLINE\"} == 1)) == 2) and on() (max(zfsMemberFault{job=\"truenas_snmp\",instance=\"100.114.236.88\"}) == 0) and on() (max(zfsStatusCommandExit{job=\"truenas_snmp\",instance=\"100.114.236.88\"}) == 0)) * 0)) and on() (max(up{job=\"truenas_snmp\",instance=\"100.114.236.88\"}) == 1)) or on() vector(4)",
+          "instant": true,
+          "legendFormat": "TrueNAS A｜mainpool / boot-pool",
+          "range": false,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "editorMode": "code",
+          "expr": "(((max(zpoolHealthStr{job=\"truenas_snmp\",instance=\"100.113.107.95\",zpoolName=~\"backuppool|boot-pool\",zpoolHealthStr!~\"ONLINE|DEGRADED\"} == 1) * 0 + 2) or on() (max(zpoolHealthStr{job=\"truenas_snmp\",instance=\"100.113.107.95\",zpoolName=~\"backuppool|boot-pool\",zpoolHealthStr=\"DEGRADED\"} == 1) * 0 + 1) or on() (((max(zfsMemberFault{job=\"truenas_snmp\",instance=\"100.113.107.95\"}) == 1) and on() (max(zfsStatusCommandExit{job=\"truenas_snmp\",instance=\"100.113.107.95\"}) == 0)) * 0 + 3) or on() (((count(max by(zpoolName) (zpoolHealthStr{job=\"truenas_snmp\",instance=\"100.113.107.95\",zpoolName=~\"backuppool|boot-pool\",zpoolHealthStr=\"ONLINE\"} == 1)) == 2) and on() (max(zfsMemberFault{job=\"truenas_snmp\",instance=\"100.113.107.95\"}) == 0) and on() (max(zfsStatusCommandExit{job=\"truenas_snmp\",instance=\"100.113.107.95\"}) == 0)) * 0)) and on() (max(up{job=\"truenas_snmp\",instance=\"100.113.107.95\"}) == 1)) or on() vector(4)",
+          "instant": true,
+          "legendFormat": "TrueNAS B｜backuppool / boot-pool",
+          "range": false,
+          "refId": "B"
+        }
+      ],
+      "title": "A／B ZFS 綜合健康（儲存池＋成員）",
+      "type": "stat",
+      "transformations": []
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "description": "SNMP 採集成功不代表磁碟健康。S3 API 成功不代表 Cloud Sync 最近完成。",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [
+            {
+              "options": {
+                "0": {
+                  "color": "#F2495C",
+                  "index": 1,
+                  "text": "異常"
+                },
+                "1": {
+                  "color": "#73BF69",
+                  "index": 0,
+                  "text": "正常"
+                }
+              },
+              "type": "value"
+            }
+          ],
+          "noValue": "未知",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#F2495C",
+                "value": null
+              },
+              {
+                "color": "#73BF69",
+                "value": 1
+              }
+            ]
+          },
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 0,
+        "w": 6,
+        "h": 6
+      },
+      "id": 110,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "horizontal",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "text": {
+          "titleSize": 16,
+          "valueSize": 24
+        },
+        "textMode": "value_and_name",
+        "wideLayout": true
+      },
+      "pluginVersion": "11.5.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "editorMode": "code",
+          "expr": "up{job=\"truenas_snmp\",instance=\"100.114.236.88\"} or on () vector(0)",
+          "instant": true,
+          "legendFormat": "TrueNAS A",
+          "range": false,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "editorMode": "code",
+          "expr": "up{job=\"truenas_snmp\",instance=\"100.113.107.95\"} or on () vector(0)",
+          "instant": true,
+          "legendFormat": "TrueNAS B",
+          "range": false,
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "editorMode": "code",
+          "expr": "min(aws_s3_bucket_health_status{job=\"aws_s3\",bucket_name=\"truenas-backup-myhome-2026\"}) * on () min(up{job=\"aws_s3\"}) or on () vector(0)",
+          "instant": true,
+          "legendFormat": "S3 API",
+          "range": false,
+          "refId": "C"
+        }
+      ],
+      "title": "採集連線／S3 API",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "description": "距 TrueNAS Post-script 成功回報的時間；不等於已驗證可還原的 RPO。",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "noValue": "尚無紀錄",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#73BF69",
+                "value": null
+              },
+              {
+                "color": "#FF9830",
+                "value": 93600
+              },
+              {
+                "color": "#F2495C",
+                "value": 100800
+              }
+            ]
+          },
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "x": 18,
+        "y": 0,
+        "w": 6,
+        "h": 6
+      },
+      "id": 103,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "text": {
+          "valueSize": 38
+        },
+        "textMode": "value",
+        "wideLayout": true
+      },
+      "pluginVersion": "11.5.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "editorMode": "code",
+          "expr": "time() - truenas_cloudsync_last_success_timestamp_seconds{job=\"cloudsync_success\",task_id=\"1\"}",
+          "instant": true,
+          "legendFormat": "",
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "title": "Cloud Sync 距成功回報",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "description": "來源為 zpool list -Hp -o name,size,alloc,free,cap。包含 RAID-Z 同位元與中繼資料；總容量是池實體配置容量，不等於扣除 RAID-Z2 後可供 SMB 使用的容量。不再將根資料集的 384 KiB 誤稱整池用量。需兩站啟用 extend zfs_capacity。",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "fixedColor": "#5794F2",
+            "mode": "fixed"
+          },
+          "decimals": 2,
+          "mappings": [],
+          "min": 0,
+          "noValue": "尚無池容量指標",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "bytes"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "已配置"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "#5794F2",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "未配置"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "#73BF69",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "實體總量"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "#8AB8FF",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 6,
+        "w": 6,
+        "h": 7
+      },
+      "id": 101,
+      "options": {
+        "displayMode": "basic",
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false
+        },
+        "maxVizHeight": 300,
+        "minVizHeight": 16,
+        "minVizWidth": 8,
+        "namePlacement": "left",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showUnfilled": true,
+        "sizing": "auto",
+        "text": {
+          "titleSize": 16,
+          "valueSize": 20
+        },
+        "valueMode": "color"
+      },
+      "pluginVersion": "11.5.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "editorMode": "code",
+          "expr": "zfsDataPoolAllocatedBytes{job=\"truenas_snmp\",instance=\"100.114.236.88\"}",
+          "instant": true,
+          "legendFormat": "已配置",
+          "range": false,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "editorMode": "code",
+          "expr": "zfsDataPoolFreeBytes{job=\"truenas_snmp\",instance=\"100.114.236.88\"}",
+          "instant": true,
+          "legendFormat": "未配置",
+          "range": false,
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "editorMode": "code",
+          "expr": "zfsDataPoolSizeBytes{job=\"truenas_snmp\",instance=\"100.114.236.88\"}",
+          "instant": true,
+          "legendFormat": "實體總量",
+          "range": false,
+          "refId": "C"
+        }
+      ],
+      "title": "A 站 ZFS 實體配置容量",
+      "type": "bargauge"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "description": "來源為 zpool list -Hp -o name,size,alloc,free,cap。包含 RAID-Z 同位元與中繼資料；總容量是池實體配置容量，不等於扣除 RAID-Z2 後可供 SMB 使用的容量。不再將根資料集的 384 KiB 誤稱整池用量。需兩站啟用 extend zfs_capacity。",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "fixedColor": "#5794F2",
+            "mode": "fixed"
+          },
+          "decimals": 2,
+          "mappings": [],
+          "min": 0,
+          "noValue": "尚無池容量指標",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "bytes"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "已配置"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "#5794F2",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "未配置"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "#73BF69",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "實體總量"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "#8AB8FF",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "x": 6,
+        "y": 6,
+        "w": 6,
+        "h": 7
+      },
+      "id": 102,
+      "options": {
+        "displayMode": "basic",
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false
+        },
+        "maxVizHeight": 300,
+        "minVizHeight": 16,
+        "minVizWidth": 8,
+        "namePlacement": "left",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showUnfilled": true,
+        "sizing": "auto",
+        "text": {
+          "titleSize": 16,
+          "valueSize": 20
+        },
+        "valueMode": "color"
+      },
+      "pluginVersion": "11.5.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "editorMode": "code",
+          "expr": "zfsDataPoolAllocatedBytes{job=\"truenas_snmp\",instance=\"100.113.107.95\"}",
+          "instant": true,
+          "legendFormat": "已配置",
+          "range": false,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "editorMode": "code",
+          "expr": "zfsDataPoolFreeBytes{job=\"truenas_snmp\",instance=\"100.113.107.95\"}",
+          "instant": true,
+          "legendFormat": "未配置",
+          "range": false,
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "editorMode": "code",
+          "expr": "zfsDataPoolSizeBytes{job=\"truenas_snmp\",instance=\"100.113.107.95\"}",
+          "instant": true,
+          "legendFormat": "實體總量",
+          "range": false,
+          "refId": "C"
+        }
+      ],
+      "title": "B 站 ZFS 實體配置容量",
+      "type": "bargauge"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "description": "S3 目前版本物件清單的大小總和；不包含非目前版本及完整帳單項目。",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "fixedColor": "#5794F2",
+            "mode": "fixed"
+          },
+          "decimals": 2,
+          "mappings": [],
+          "noValue": "無資料",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "bytes"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 6,
+        "w": 6,
+        "h": 7
+      },
+      "id": 105,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "text": {
+          "valueSize": 36
+        },
+        "textMode": "value",
+        "wideLayout": true
+      },
+      "pluginVersion": "11.5.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "editorMode": "code",
+          "expr": "aws_s3_bucket_size_bytes_average{job=\"aws_s3\",instance=~\"(localhost|127[.]0[.]0[.]1):9107\",bucket_name=\"truenas-backup-myhome-2026\"}",
+          "instant": true,
+          "legendFormat": "",
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "title": "S3 已用容量",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "description": "估算儲存費，不是 AWS 帳單；不包含請求、取回、傳輸及其他費用。",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "fixedColor": "#73BF69",
+            "mode": "fixed"
+          },
+          "decimals": 3,
+          "mappings": [],
+          "noValue": "無資料",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "currencyUSD"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "x": 18,
+        "y": 6,
+        "w": 6,
+        "h": 7
+      },
+      "id": 106,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "text": {
+          "valueSize": 36
+        },
+        "textMode": "value",
+        "wideLayout": true
+      },
+      "pluginVersion": "11.5.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "editorMode": "code",
+          "expr": "aws_s3_estimated_monthly_cost_usd{job=\"aws_s3\",instance=~\"(localhost|127[.]0[.]0[.]1):9107\",bucket_name=\"truenas-backup-myhome-2026\"}",
+          "instant": true,
+          "legendFormat": "",
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "title": "S3 儲存費估算（月）",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "description": "TrueNAS A 與 TrueNAS B 的 CPU 平均使用率趨勢。",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 8,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "dashed"
+            }
+          },
+          "mappings": [],
+          "max": 100,
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#73BF69",
+                "value": null
+              },
+              {
+                "color": "#F2495C",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "percent"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "TrueNAS_A"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "#5794F2",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "TrueNAS_B"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "#73BF69",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 13,
+        "w": 12,
+        "h": 7
+      },
+      "id": 107,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "11.5.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "editorMode": "code",
+          "expr": "avg by (nodename) (hrProcessorLoad)",
+          "instant": false,
+          "legendFormat": "{{nodename}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "CPU 使用率",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "description": "TrueNAS A 與 TrueNAS B 的實體記憶體使用率趨勢。",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 8,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "dashed"
+            }
+          },
+          "mappings": [],
+          "max": 100,
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#73BF69",
+                "value": null
+              },
+              {
+                "color": "#F2495C",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "percent"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "TrueNAS_A"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "#5794F2",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "TrueNAS_B"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "#73BF69",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 13,
+        "w": 12,
+        "h": 7
+      },
+      "id": 108,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "11.5.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "editorMode": "code",
+          "expr": "(hrStorageUsed{hrStorageDescr=\"Physical memory\"} / hrStorageSize{hrStorageDescr=\"Physical memory\"}) * 100",
+          "instant": false,
+          "legendFormat": "{{nodename}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "記憶體使用率",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "description": "tailscale0 的流量速率，含複寫及其他走此介面的傳輸，不等同單一複寫任務速度。",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 8,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#73BF69",
+                "value": null
+              }
+            ]
+          },
+          "unit": "binbps"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "TrueNAS_A 下載 (Rx)"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "#5794F2",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "TrueNAS_A 上傳 (Tx)"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "#8AB8FF",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "TrueNAS_B 下載 (Rx)"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "#73BF69",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "TrueNAS_B 上傳 (Tx)"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "#56A64B",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 20,
+        "w": 24,
+        "h": 7
+      },
+      "id": 109,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true,
+          "hideEmpty": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "11.5.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "editorMode": "code",
+          "expr": "rate(ifHCInOctets{job=\"truenas_snmp\", instance=~\"100[.]114[.]236[.]88|100[.]113[.]107[.]95\", ifName=\"tailscale0\"}[5m]) * 8",
+          "instant": false,
+          "legendFormat": "{{nodename}} 下載 (Rx)",
+          "range": true,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "editorMode": "code",
+          "expr": "rate(ifHCOutOctets{job=\"truenas_snmp\", instance=~\"100[.]114[.]236[.]88|100[.]113[.]107[.]95\", ifName=\"tailscale0\"}[5m]) * 8",
+          "instant": false,
+          "legendFormat": "{{nodename}} 上傳 (Tx)",
+          "range": true,
+          "refId": "B"
+        }
+      ],
+      "title": "Tailscale 網路流量",
+      "type": "timeseries"
+    }
+  ],
+  "preload": false,
+  "refresh": "15s",
+  "schemaVersion": 40,
+  "tags": [
+    "TrueNAS",
+    "hybrid-cloud",
+    "zfs-members-v2"
+  ],
+  "templating": {
+    "list": []
+  },
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "Asia/Taipei",
+  "title": "TrueNAS 混合雲｜ZFS 成員・容量・備份監控",
+  "uid": "truenas321-capacity-cloudsync-vm",
+  "version": 2,
+  "weekStart": "",
+  "__inputs": [
+    {
+      "name": "DS_PROMETHEUS",
+      "label": "Prometheus",
+      "description": "請選擇這台新 VM 建立的 Prometheus",
+      "type": "datasource",
+      "pluginId": "prometheus",
+      "pluginName": "Prometheus"
+    }
+  ]
+}

@@ -1,0 +1,99 @@
+apiVersion: 1
+groups:
+- orgId: 1
+  name: zfs_members_1m
+  folder: TrueNAS_Alerts
+  interval: 1m
+  rules:
+  - uid: zfs_member_fault_v1
+    title: ZFS 磁碟成員或 VDEV 異常
+    condition: C
+    for: 0s
+    noDataState: NoData
+    execErrState: Error
+    isPaused: false
+    labels:
+      severity: critical
+      category: zfs_members
+    annotations:
+      summary: ZFS 磁碟成員或 VDEV 異常
+      description: 請在來源 TrueNAS 執行 zpool status -P。成員異常不代表整個儲存池已無法存取；狀態無法取得也不等於磁碟故障。
+    data:
+    - refId: A
+      relativeTimeRange:
+        from: 300
+        to: 0
+      datasourceUid: cg15oru9k9clcd
+      model:
+        expr: (max by(instance) (zfsMemberFault{job="truenas_snmp"} and on(instance)
+          (zfsStatusCommandExit{job="truenas_snmp"} == 0) and on(instance) (up{job="truenas_snmp"}
+          == 1))) or on(instance) label_replace(vector(2), "instance", "100.114.236.88",
+          "", ".*") or on(instance) label_replace(vector(2), "instance", "100.113.107.95",
+          "", ".*")
+        instant: true
+        range: false
+        refId: A
+    - refId: B
+      datasourceUid: __expr__
+      model:
+        type: reduce
+        expression: A
+        reducer: last
+        refId: B
+    - refId: C
+      datasourceUid: __expr__
+      model:
+        type: threshold
+        expression: B
+        refId: C
+        conditions:
+        - evaluator:
+            type: eq
+            params:
+            - 1
+  - uid: zfs_member_missing_v1
+    title: ZFS 磁碟成員狀態無法取得
+    condition: C
+    for: 2m
+    noDataState: NoData
+    execErrState: Error
+    isPaused: false
+    labels:
+      severity: warning
+      category: zfs_members
+    annotations:
+      summary: ZFS 磁碟成員狀態無法取得
+      description: 請在來源 TrueNAS 執行 zpool status -P。成員異常不代表整個儲存池已無法存取；狀態無法取得也不等於磁碟故障。
+    data:
+    - refId: A
+      relativeTimeRange:
+        from: 300
+        to: 0
+      datasourceUid: cg15oru9k9clcd
+      model:
+        expr: (max by(instance) (zfsMemberFault{job="truenas_snmp"} and on(instance)
+          (zfsStatusCommandExit{job="truenas_snmp"} == 0) and on(instance) (up{job="truenas_snmp"}
+          == 1))) or on(instance) label_replace(vector(2), "instance", "100.114.236.88",
+          "", ".*") or on(instance) label_replace(vector(2), "instance", "100.113.107.95",
+          "", ".*")
+        instant: true
+        range: false
+        refId: A
+    - refId: B
+      datasourceUid: __expr__
+      model:
+        type: reduce
+        expression: A
+        reducer: last
+        refId: B
+    - refId: C
+      datasourceUid: __expr__
+      model:
+        type: threshold
+        expression: B
+        refId: C
+        conditions:
+        - evaluator:
+            type: eq
+            params:
+            - 2

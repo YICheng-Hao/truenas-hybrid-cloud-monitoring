@@ -1,72 +1,111 @@
-# ZFS 儲存池健康監控與故障演練
+# 第七章監控修正與第八章磁碟故障驗證
 
-## 面板判讀
+## 漏報原因
 
-| 項目 | 回答的問題 | 不代表的意義 |
-|---|---|---|
-| A／B 空間使用率 | 各站已用空間占總空間的比例 | RAID 健康或複寫完成率 |
-| ZFS 儲存池健康狀態 | 預期儲存池是否 ONLINE、DEGRADED 或其他異常 | SMB 端到端可用性及重建進度 |
-| 監控採集／API 狀態 | SNMP 或 S3 清單查詢是否成功 | 磁碟一定健康或備份一定成功 |
+2026-10-19 實測截圖顯示 A 站 mainpool 與 raidz2-0 仍回報 ONLINE，但兩顆成員已 FAULTED，並有持續 I/O 錯誤。SNMP 的 zpoolHealthStr 也回傳 ONLINE，原先只檢查池狀態的規則因此無法觸發。此為本次觀察，不推定所有版本均有相同行為。
 
-一顆 RAID-Z2 資料碟離線時，SNMP 仍可回應，因此「採集正常、儲存池 DEGRADED」是合理組合。停止 snmp_exporter 時，應顯示「採集失敗、健康無資料」，不能將舊 ONLINE 當作目前正常。
+修正後同時使用原生池健康字串及 Net-SNMP extend 的完整成員狀態；成員告警獨立於池狀態。不要為了取得 DEGRADED 字樣繼續移除磁碟。
 
-健康狀態面板使用 zpoolHealthStr 的字串標籤，不假設私有 MIB 的數值 enum。ONLINE 對應 1，DEGRADED 對應 2，其他有回報的狀態對應 3；預期池沒有有效指標或 up 不為 1 時對應 4。3 是本監控面板的分類碼，並非原始 ZFS enum，也不將 OFFLINE、UNAVAIL、SUSPENDED 全部改稱 FAULTED。實際狀態可在 Prometheus 查詢 zpoolHealthStr，或到 TrueNAS 執行 zpool status。
+## 7.1 A、B 兩站新增 SNMP 資料來源
 
-目前預期池為 A 站 mainpool、boot-pool，以及 B 站 backuppool、boot-pool；若池名稱或位址更動，須同步修改面板和告警。健康查詢會移除 nodename 標籤並保留 instance、zpoolName，以穩定比對預期池；通知模板應顯示這兩個標籤。
+分別登入兩站 TrueNAS：【System／系統設定 ➔ Services ➔ SNMP ➔ Edit】，在「附屬參數／Auxiliary Parameters」保留其他設定，確保以下每個名稱僅出現一次：
 
-## 套用設定
-
-1. 先確認 SNMP Exporter 已有 truenas_zfs 模組，並能對兩站回傳 zpoolHealthStr。僅修改 Prometheus 不會自動建立 Exporter 模組。
-2. 備份目前 /etc/prometheus/prometheus.yml 及 Grafana 告警設定檔。
-3. 將 configs/prometheus.yml 的 truenas_snmp.params.module 更新為包含 truenas_zfs；其餘 IP、9108 目標及客製設定依現場保留。用 promtool check config 驗證後重啟或重新載入 Prometheus。
-4. 查詢 zpoolHealthStr{job="truenas_snmp"}，應看到兩站的資料池與 boot-pool。
-5. 使用修改後的 grafana/TrueNAS_Grafana面板 JSON 匯入，DS_PROMETHEUS 選擇現有 Prometheus。儀表板 uid 沿用上傳檔，可能更新同 uid 儀表板；請先匯出舊版。
-6. 將 configs/grafana-alerts.yaml 複製至目前使用的 /etc/grafana/provisioning/alerting/truenas-alerts.yaml，替換同一份檔案，勿同時留下另一份相同規則 uid 的設定。此檔的 datasourceUid 為 cg15oru9k9clcd，須與現場一致。
-7. 重啟 grafana-server，查看 TrueNAS_Alerts 共七條規則，確認現有通知政策仍路由至 Discord／Email，並可送出恢復通知。
-8. 容量差異原有配對問題已改為兩站分別 sum 再相減；本指標只是空間差異參考，不驗證資料一致性。Cloud Sync task_id 預設仍為 1，請核對實機。
-
-新增規則：
-
-| 名稱 | 條件 | Pending | 等級 |
-|---|---|---|---|
-| ZFS 儲存池降級 | 狀態碼等於 2 | 1 分鐘 | warning |
-| ZFS 儲存池其他異常 | 狀態碼等於 3 | 1 分鐘 | critical |
-| ZFS 健康指標無法取得 | 狀態碼等於 4 | 2 分鐘 | warning |
-
-規則每分鐘評估，SNMP 每 15 秒採集。通知延遲還包含 Pending、網路及 Notification policy 的 group_wait，不能宣稱立即通知。Prometheus 本身不可用時由 Grafana 的 Error／No Data 行為處理；池層級 fallback 不會掩蓋資料源錯誤。
-
-## 通知模板
-
-請在既有 nas.body 的每個 firing／resolved 迴圈加入：
-
-```gotemplate
-{{ if .Labels.zpoolName }}儲存池：{{ .Labels.zpoolName }}
-{{ end }}{{ if .Annotations.description }}處置說明：{{ .Annotations.description }}
-{{ end }}
+```text
+extend zfs /usr/sbin/zpool status -P
+extend zfs_capacity /usr/sbin/zpool list -Hp -o name,size,alloc,free,cap
 ```
 
-原模板的 instance 位址仍需保留，才能分辨兩站同名的 boot-pool。
+儲存後，關閉再開啟該站 SNMP 服務。不要直接編輯由 TrueNAS 產生的 snmpd.conf。兩條指令只讀取狀態，不變更池配置。
 
-## 第八章情境一建議文字
+由 Rocky Linux 監控 VM 驗證兩站：
 
-### 單顆或雙顆資料碟故障模擬與 RAID-Z2 復原驗證
+```bash
+for NAS_TS_IP in 100.114.236.88 100.113.107.95; do
+  snmpget -v2c -c public -t 5 -r 1 "$NAS_TS_IP" \
+    1.3.6.1.4.1.8072.1.3.2.3.1.2.3.122.102.115
+  snmpget -v2c -c public -t 5 -r 1 "$NAS_TS_IP" \
+    1.3.6.1.4.1.8072.1.3.2.3.1.2.12.122.102.115.95.99.97.112.97.99.105.116.121
+done
+```
 
-本測試以 VMware 中 TrueNAS 的資料虛擬磁碟模擬故障，不宣稱已完成實體硬碟熱抽換。測試前確認資料已有可用備份，核對資料碟與系統碟身分，先執行單碟測試，再於隔離測試環境評估雙碟情境；不對正式資料池製造故障。
+第一項應有完整成員表，第二項應有資料池名稱與四個數值。No Such Instance 表示對應 extend 未生效，不代表磁碟正常。查詢 IP 必須與實際修改的 TrueNAS 相同。
 
-1. 基準驗證：確認資料池 ONLINE，從 Windows 11 持續存取測試檔案並記錄時間、錯誤及傳輸表現。B 站若未開啟 SMB，驗證其管理及備份功能，不宣稱有對外 SMB 服務。
-2. 故障與預警：模擬單顆資料碟離線，確認同一組 RAID-Z2 VDEV 在容錯範圍內轉為 DEGRADED。監控應呈現「採集可正常回應、資料池降級」，並於規則滿足 Pending 後產生通知。這項測試只證明 DEGRADED 分支；不需要破壞更多磁碟製造 FAULTED。
-3. 替換與重建：於 TrueNAS Storage 的目標池裝置管理中定位故障磁碟，準備容量足夠的新磁碟後執行 Replace。替換會清除新磁碟內容，請核對裝置；記錄 resilver 進度、完成時間及錯誤。虛擬環境的新增／移除硬碟須依控制器能力操作，不保證可熱插拔。
-4. 復原驗證：重建完成後確認 pool ONLINE、無已知永久資料錯誤，重新核對測試檔案內容／雜湊、服務表現與告警恢復通知。重建期間可能有效能下降或 I/O 延遲，不能保證讀寫完全不受影響。
-5. 定期巡檢：另行安排 Scrub，驗證已配置資料的 checksum。只有存在可用冗餘副本時才能自動修復部分錯誤；Scrub 不取代備份，也不等於 resilver。
+## 7.2 更新現有監控 VM
 
-RAID-Z2 每組 VDEV 可容忍兩顆資料碟故障。兩顆系統碟的 Mirror 僅容忍其中一顆故障，不能將 RAID-Z2 的雙碟容錯套用到 boot-pool。若實測期間未觀察到服務中斷，記為「本次測試未觀察到中斷」並附量測頻率，不預先宣稱 RTO = 0 秒。Resilver 耗時記為冗餘恢復時間，與服務中斷時間分開記錄。
+以 root 執行。fetch 與 git show 不會切換本地工作分支：
 
-## 驗證範圍
+```bash
+(
+set -e
+dnf install -y python3-pyyaml
+git -C /root/truenas-hybrid-cloud-monitoring fetch origin main
+git -C /root/truenas-hybrid-cloud-monitoring show \
+  FETCH_HEAD:scripts/deploy-zfs-members.py > /root/deploy-zfs-members.py
+python3 /root/deploy-zfs-members.py
+)
+```
 
-## 實機啟動錯誤修正
+腳本備份 SNMP、Prometheus 與自己的成員告警檔，補入 truenas_zfs 指標，保留其他 SNMP 模組與實機 Prometheus 目標，新增兩條成員規則。會執行 Exporter dry-run、promtool、A 站指標檢查與 Grafana 啟動健康檢查。失敗時還原三份設定並重新啟動服務。備份位置為 /root/zfs-member-backup-時間戳記。
 
-2026-10-19 使用者提供的 Grafana 日誌指出獨立部署腳本使用的 `interval: 15s` 無法被 10 秒基準的排程器接受，導致 provisioning 模組啟動失敗。`scripts/deploy-zfs-alerts.py` 已改成 `interval: 1m`，群組為 `zfs_health_1m`。這與 Prometheus 的 SNMP `scrape_interval: 15s` 不同；後者不需修改。
+增量腳本不改寫 Dashboard、通知模板、通知政策或其他既有規則。現有 4＋3＋2 條可繼續分檔載入，不要再額外載入整合九條的 configs/grafana-alerts.yaml。全新部署可選整合檔，但不能再同時載入相同 UID 的分檔規則。整合檔容量門檻採新版池實體配置比例；增量腳本不會替換現有容量門檻規則。
 
-獨立腳本適用於現有四條規則的主機，另外新增三條 ZFS 規則；整合版 `configs/grafana-alerts.yaml` 已包含七條，兩種方式擇一，避免重複 uid。腳本會先檢查其他 provisioning 檔案是否已有相同規則。
+新增檔案為 /etc/grafana/provisioning/alerting/zfs-member-alerts.yaml，群組 zfs_members_1m。每分鐘評估；故障 Pending 0 秒、資料缺失 Pending 2 分鐘。傳送時間另受通知政策 group_wait／group_interval 影響，不能將 Pending 0 秒稱為零延遲。
 
-本次使用 Prometheus 2.54.1 promtool 對 ONLINE、DEGRADED、FAULTED、OFFLINE、SUSPENDED、SNMP 採集失敗及健康指標缺失進行七組合成資料測試。另驗證 Prometheus 設定與所有 PromQL 語法。尚未登入實際 Grafana／TrueNAS，未聲稱真實磁碟故障、郵件／Discord 或重建測試已通過。
+| 指標 | 內容 |
+|---|---|
+| zpoolHealthStr | TrueNAS 原生池健康字串 |
+| zfsMemberFault | 0：正常表格；1：表格列含 DEGRADED／FAULTED／UNAVAIL／OFFLINE／REMOVED／SUSPENDED；2：無法辨識輸出 |
+| zfsStatusCommandExit | zpool status 退出碼；0 才能採信成員結果 |
+| zfsDataPoolSizeBytes | 資料池實體總容量 |
+| zfsDataPoolAllocatedBytes | 已配置實體空間 |
+| zfsDataPoolFreeBytes | 未配置實體空間 |
+| zfsDataPoolUsedPercent | zpool list CAP 百分比 |
+
+成員指標為主機層級，不帶個別磁碟／池標籤，故障定位仍需 zpool status -P。容量解析預設每站僅有一個 mainpool 或 backuppool；同站有多個相符池時，需改為逐池指標。
+
+舊自訂 zpoolHealth 指標曾錯接 TRUENAS-MIB zpoolEntry 第 7 欄；它是寫入位元組累計，不是健康數值。不能用該大數值判斷健康或宣稱健康 enum 溢位。本次腳本移除此錯誤指標，保留 zpoolHealthStr。
+
+## 7.3 匯入面板
+
+1. 下載 grafana/TrueNAS_Hybrid_Cloud.json。
+2. Grafana【Dashboards ➔ New ➔ Import ➔ Upload dashboard JSON file】上傳，資料源選現有 Prometheus。
+3. 保留 UID truenas321-capacity-cloudsync-vm，選 Overwrite 覆寫既有面板，避免保留兩份。
+4. 確認標題為「TrueNAS 混合雲｜ZFS 成員・容量・備份監控」，共 10 個面板，舊 A／B 使用率 Gauge 已移除。
+
+GitHub JSON 更新不會自動更新 Grafana 資料庫。Dashboard、告警 provisioning 與通知模板為獨立設定。面板用途與容量口徑見 [dashboard-panels.md](dashboard-panels.md)。
+
+## 7.4 九條規則
+
+| 規則 | Pending | 意義 |
+|---|---|---|
+| 節點／S3 監控離線 | 2m | 採集或 S3 查詢失敗 |
+| 容量超標 | 5m | 新版整合檔為池實體配置 >85% |
+| 兩站已用空間差異 | 15m | 舊有參考規則；差異不等於複寫失敗 |
+| Cloud Sync 成功回報逾時 | 5m | task_id=1 超過 28 小時未回報成功 |
+| 原生池 DEGRADED | 1m | 池字串為 DEGRADED |
+| 原生池其他異常 | 1m | 池字串非 ONLINE／DEGRADED |
+| 原生池健康資料缺失 | 2m | 預期池無有效狀態 |
+| 成員／VDEV 異常 | 0s | 成員指標=1、指令成功且採集在線 |
+| 成員狀態無法取得 | 2m | 資料缺失、解析／指令失敗或採集離線 |
+
+資料源 UID 範例 cg15oru9k9clcd、Cloud Sync task_id 範例 1，需依實機核對。模板應保留 instance，才能辨識兩站；通知恢復不直接等於已完成 resilver。
+
+通知模板原始碼另存於 configs/grafana-notification-template.tmpl，供文件與重建參考。它是貼到 Grafana Notification templates 介面的 Go template，不是直接放入 provisioning/alerting 的 YAML。聯絡點 Title／Subject 使用 {{ template "nas.title" . }}，Message／Body 使用 {{ template "nas.body" . }}。現場已能收到通知者不必為了更新面板重建聯絡點。時區格式使用 Grafana 官方支援的 tz／date 函式：https://grafana.com/docs/grafana/latest/alerting/configure-notifications/template-notifications/reference/
+
+## 8.1 資料虛擬磁碟故障與復原驗證
+
+1. 基準：記錄 zpool status -P、Windows 11 檔案讀寫、服務回應及可用備份。核對資料碟與系統碟身分。
+2. 故障：於隔離 VMware 測試環境先驗證單碟；已出現兩顆 FAULTED 時停止增加故障。
+3. 判讀：分別保存池與成員證據。若池 ONLINE、成員 FAULTED，記錄實際結果，應顯示紅色成員異常並通知；只有原生回傳 DEGRADED 才記為池 DEGRADED。
+4. 通知：記錄故障、採集、Grafana Firing、Discord 與 Email 到達時間，分別驗證各管道。採集正常與成員故障可同時成立。
+5. 替換：於 TrueNAS 目標池裝置管理定位故障碟，核對容量足夠的新磁碟後 Replace。替換會清除新磁碟；熱插拔支援依實際 VMware 控制器判斷。
+6. 復原：記錄 resilver 進度／完成時間、池與成員狀態、永久資料錯誤，以及測試檔案雜湊與讀寫結果。
+7. 巡檢：另行排程 Scrub 檢查 checksum；只有存在可用冗餘時才可能修復對應錯誤。Scrub 不取代備份或 resilver。
+
+RAID-Z2 每個 VDEV 容忍兩顆資料碟故障；雙系統碟 Mirror 僅容忍一顆系統碟故障。未觀察到中斷時記錄量測頻率及結果，不預先宣稱 RTO=0 秒。B 站不提供 SMB 時驗證備份與管理功能即可；重建時間與服務中斷時間分開記錄。
+
+## 驗證紀錄
+
+使用者截圖確認 A 站 zfsMemberFault=1、zfsStatusCommandExit=0，Discord 收到成員異常；B 站收到成員資料缺失，因此仍需完成／驗證 B 的 extend。未宣稱 Email、硬碟替換、resilver 或還原通過。
+
+新版容量與 Dashboard 已進行 SNMP Exporter 0.26.0 dry-run、PromQL 語法及合成狀態測試；仍需實機啟用 zfs_capacity、更新腳本並匯入面板。測試不操作實際磁碟。

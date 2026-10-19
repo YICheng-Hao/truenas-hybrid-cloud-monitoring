@@ -1,0 +1,31 @@
+{{ define "nas.title" -}}
+{{ if eq .Status "firing" }}[災難備援告警] 偵測到 {{ len .Alerts.Firing }} 項異常{{ else }}[監控恢復] {{ len .Alerts.Resolved }} 項告警解除{{ end }}
+{{- end }}
+{{ define "nas.body" -}}
+{{ range .Alerts.Firing }}
+【異常告警】
+{{ template "nas.item" . }}
+觸發時間：{{ .StartsAt | tz "Asia/Taipei" | date "2006-01-02 15:04:05 MST" }}
+
+{{ end }}
+{{ range .Alerts.Resolved }}
+【告警解除】
+{{ template "nas.item" . }}
+恢復時間：{{ .EndsAt | tz "Asia/Taipei" | date "2006-01-02 15:04:05 MST" }}
+
+{{ end }}
+{{- end }}
+{{ define "nas.item" -}}
+告警規則：{{ .Labels.alertname }}
+{{ if .Labels.nodename }}目標節點：{{ .Labels.nodename }}
+{{ else if eq .Labels.instance "100.114.236.88" }}目標節點：TrueNAS_A（總部）
+{{ else if eq .Labels.instance "100.113.107.95" }}目標節點：TrueNAS_B（異地）
+{{ end }}{{ if .Labels.instance }}來源位址：{{ .Labels.instance }}
+{{ end }}{{ if .Labels.zpoolName }}儲存池：{{ .Labels.zpoolName }}
+{{ end }}{{ if .Labels.bucket_name }}儲存桶：{{ .Labels.bucket_name }}
+{{ end }}{{ if .Labels.task_id }}Cloud Sync 任務：{{ .Labels.task_id }}
+{{ end }}{{ if .Annotations.summary }}狀態說明：{{ .Annotations.summary }}
+{{ end }}{{ if .Annotations.description }}處置說明：{{ .Annotations.description }}
+{{ end }}
+{{- end }}
+{{ define "zh_tw_alert_template" }}{{ template "nas.body" . }}{{ end }}
