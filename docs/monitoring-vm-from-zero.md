@@ -89,6 +89,7 @@ sudo -i
 - 自動載入 Prometheus 資料源、10 個面板、9 條告警、繁體中文通知模板、Email＋Discord 聯絡點與預設通知路由。
 - 依管理來源網段開放 3000／9090，並加入僅 A 站可連入 9108 的來源規則；保留其他既有防火牆規則。
 - 啟用服務開機自動啟動，檢查 S3 API 及兩站容量、磁碟成員指標。
+- 實際檢查 Grafana Prometheus 資料源與九條規則的評估結果；規則僅載入但評估出錯時，不會宣告安裝通過。
 
 所有輸入保存於 `/root/monitoring-setup.json`，權限 600。檔案含有秘密，不可上傳 GitHub。Receiver Token 自動產生；重跑時保留，不會任意更換。安裝器也不會刪除既有成功回報檔。
 
@@ -165,3 +166,7 @@ S3 費用是單一儲存單價 × 目前物件容量的估算，不含請求、�
 本次驗證包含設定產生測試、Prometheus／SNMP 設定檢查，以及 Grafana 13.2.4 真實程序載入九規則、十面板與雙通知聯絡點。尚未在全新 Rocky VM 完成整套系統級安裝演練；現場仍須依步驟 4、5 驗收真實 Cloud Sync 與通知收訊。
 
 Rocky 10 支援修正：依實際主版本選用 Tailscale 官方 RHEL 9／10 軟體源。版本偵測測試涵蓋 Rocky 10.2；尚未在完整 Rocky 10 VM 做端到端安裝驗證。官方來源：https://pkgs.tailscale.com/stable/ 。安裝命令使用子 Shell，失敗時不會因 `set -e` 結束目前 SSH Shell；已有專案目錄時採快轉更新，不重複 clone。
+
+## 內部測試紀錄
+
+本流程的測試輪數、發現問題與修正結果見 [安裝測試報告](installation-test-report.md)。完整 VM 整合測試使用真實 Rocky／systemd／SELinux 與正式監控程式；外部服務與 Tailnet 身分使用隔離替身，不代表已驗證你的真實帳號、跨站網路或硬碟重建。
