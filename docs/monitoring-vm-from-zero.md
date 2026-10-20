@@ -4,41 +4,62 @@
 
 2026-10-20 已在 Rocky 9.8／10.2 隔離 VM 完成建置、故障／恢復通知、重跑與重新開機驗證；測試輪數及外部服務替身範圍見 [測試報告](installation-test-report.md)。
 
-## 1. 建立 VM 與準備資料
+## 1. 先建立 VM，單獨完成 Tailscale 登入
 
-在 VMware 建立 Rocky Linux 9／10 x86_64 VM，建議 2 vCPU、4 GiB RAM、40 GiB 系統碟，設定管理 IP、預設閘道與 DNS。下列命令以 root 執行；以一般管理帳號登入後執行 `sudo -i` 即可，不必開放 root SSH 登入。
+在 VMware 建立 Rocky Linux 9／10 x86_64 VM，建議 2 vCPU、4 GiB RAM、40 GiB 系統碟。依專案架構保持 Host-Only，透過既有 Gateway VM 上網；先設定管理 IP、預設閘道與 DNS。下列命令只在監測 VM 執行，不是在 TrueNAS Shell。
 
-先準備下列資料。安裝器會逐項詢問；密鑰與密碼使用隱藏輸入，不必修改程式碼。
+### 1-1. 下載程式（不會開始詢問 AWS 或 Gmail）
 
-| 輸入項目 | 本專案預設／取得方式 |
-|---|---|
-| A 站 Tailscale IP | 100.114.236.88 |
-| B 站 Tailscale IP | 100.113.107.95 |
-| 管理來源網段 | 例如 192.168.23.0/24；依你的管理端實際來源填寫 |
-| Grafana 瀏覽網址 | 自動依 VM 管理 IP 提供，例如 http://192.168.23.158:3000/ |
-| S3 儲存桶／Region | truenas-backup-myhome-2026／ap-east-2 |
-| TrueNAS A Cloud Sync Task ID | 預設 1；應與實際雲端同步任務 ID 相同 |
-| SNMP Community | 預設 public，兩站須一致 |
-| 監控專用 IAM Access Key ID／Secret | 使用僅授權目標 bucket 的 s3:ListBucket 帳號，不必給寫入／刪除權限 |
-| 寄件 Gmail／Google App Password | 使用應用程式密碼，不能填一般 Gmail 登入密碼 |
-| 告警收件 Email | 多個地址以分號分隔 |
-| Discord Webhook URL | 在目標 Discord 頻道建立 Webhook |
-| Grafana admin 密碼 | 自訂至少 12 字元 |
+一般管理帳號登入後先執行：
 
-監控 IAM 政策範例（bucket 名稱若不同，請改成你的名稱）：
-
-```json
-{
-  "Version": "2012-10-17",
-  "Statement": [{
-    "Effect": "Allow",
-    "Action": "s3:ListBucket",
-    "Resource": "arn:aws:s3:::truenas-backup-myhome-2026"
-  }]
-}
+```bash
+sudo -i
 ```
 
-監測 VM、A、B 須加入同一個 Tailscale 網路，且 Tailnet 存取規則允許 VM 對兩站 UDP 161、A 對 VM TCP 9108。管理端須能連線 VM TCP 3000／9090。安裝過程需對外下載 Rocky、Tailscale、GitHub、Grafana、AWS CLI 套件，寄信需出站 TCP 587。
+再整段貼上：
+
+```bash
+(
+  set -e
+  dnf install -y git python3 python3-pyyaml
+  if [ -d /root/truenas-hybrid-cloud-monitoring/.git ]; then
+    git -C /root/truenas-hybrid-cloud-monitoring pull --ff-only origin main
+  else
+    git clone https://github.com/YICheng-Hao/truenas-hybrid-cloud-monitoring.git /root/truenas-hybrid-cloud-monitoring
+  fi
+)
+```
+
+私人儲存庫會詢問 GitHub Username／Password。Username 填 GitHub 帳號；Password 填有此儲存庫讀取權限的 Personal Access Token，不是 GitHub 登入密碼。輸入 Token 不顯示字元。不要把 Token 放進 clone 網址。
+
+### 1-2. 只安裝並登入 Tailscale
+
+```bash
+python3 /root/truenas-hybrid-cloud-monitoring/scripts/setup-monitoring-vm.py --tailscale-only
+```
+
+未登入時，`tailscale up` 會在終端機顯示登入網址。用 Windows 瀏覽器開啟它，登入 **A、B 所在的同一個 Tailnet**，必要時在管理頁核准節點，命令才會完成。本步驟不詢問 AWS、Email、Discord、Grafana 密碼，也不安裝監控服務。
+
+若顯示「此 VM 已登入 Tailscale」，不出現新登入網址屬正常情況，直接確認：
+
+```bash
+tailscale status
+tailscale ip -4
+```
+
+`tailscale ip -4` 顯示的是 **監測 VM 自己的 100.x IP**，安裝器自動讀取，不要拿它填 A／B 欄位。A、B 尚未加入 Tailnet 時，請先完成各 NAS 的 Tailscale 設定；本命令只處理監測 VM。
+
+| 位址用途 | 本專案範例 | 用在哪裡 |
+|---|---|---|
+| TrueNAS A Tailscale IP | 100.114.236.88 | 安裝器 A 站欄位；請核對 Tailscale 管理頁的 NAS 節點 |
+| TrueNAS B Tailscale IP | 100.113.107.95 | 安裝器 B 站欄位；請核對 B 站 NAS 節點 |
+| 監測 VM 管理 IP | 截圖為 192.168.23.158 | Grafana 網址 http://192.168.23.158:3000/ |
+| 管理電腦的來源網段 | 管理電腦在該網段時用 192.168.23.0/24 | 防火牆允許誰開 Grafana／Prometheus |
+| 監測 VM Tailscale IP | 依 tailscale ip -4 的結果 | 安裝器自動產生 Cloud Sync 回報網址 |
+
+**你的截圖中 `可管理此 VM 的來源網段` 填了 `192.168.23.158`，這是 VM 位址。** 若管理電腦確實在 192.168.23.0/24，填 `192.168.23.0/24`。若只開給單台電腦，填「該管理電腦 IP/32」。不要把監測 VM 的 IP 當作管理來源。使用其他 Host-Only 網段或經 Gateway 路由時，依實際管理來源填寫；預設 /24 只是建議，不代表安裝器已確認你的網路。
+
+監測 VM、A、B 必須可經 Tailnet 互通，存取規則允許 VM 對 NAS UDP 161、A 對 VM TCP 9108。管理端須能連 VM TCP 3000／9090。安裝需對外下載套件，Gmail 寄信需出站 TCP 587。
 
 ## 2. TrueNAS A／B 的 SNMP 前置設定
 
@@ -54,32 +75,59 @@ extend zfs /usr/sbin/zpool status -P
 
 本流程只依賴標準 hrStorage、TrueNAS 原生健康字串與上述 zfs 成員來源，不依賴先前排錯用的 `zfs_capacity`／`zfsUsablePool` 設定。
 
-## 3. 在全新 Rocky VM 貼上安裝命令
+## 3. 確認每個欄位，再啟動監控安裝
 
-登入 Rocky VM 後，先取得 root shell：
+### 3-1. 必填資料與取得方式
+
+這個安裝器建立完整的 S3、Email、Discord 監控，以下欄位皆必填，不能直接留白。一般欄位顯示 `[預設值]` 時，確認正確才按 Enter；密碼／金鑰為隱藏輸入，不顯示星號。不要把真實秘密貼到 GitHub 或截圖分享。
+
+| 安裝器欄位 | 要填什麼 | 從哪裡取得／範例 |
+|---|---|---|
+| A／B 站 Tailscale IP | 各 NAS 的 100.x IPv4 | Tailscale 管理頁找 A、B NAS；不是監測 VM IP |
+| 可管理此 VM 的來源網段 | 管理電腦所在 CIDR | 例如 192.168.23.0/24；單台電腦用其 IP/32；必須含斜線 |
+| Grafana 瀏覽網址 | 監測 VM 網頁完整位址 | 截圖環境可用 http://192.168.23.158:3000/；不是 Tailscale 登入網址 |
+| S3 儲存桶 | 目的 bucket 名稱 | AWS S3 → Buckets；例如 truenas-backup-myhome-2026；不加 s3:// |
+| AWS Region | bucket 實際區域代碼 | AWS S3 bucket 內容確認；預設 ap-east-2，不能只依預設猜測 |
+| TrueNAS A Cloud Sync Task ID | S3 同步任務的 id 數字 | 依下方 TrueNAS Shell 命令確認；不是任務名稱或暫時的執行 job ID |
+| 兩站 SNMP Community | NAS SNMP 設定的相同 Community | 本流程為 public；若你改過，兩站與此欄都要一致 |
+| 監控 IAM Access Key ID | IAM 存取金鑰 ID | AWS IAM → Users → 監控使用者 → Security credentials → Access keys |
+| 監控 IAM Secret Access Key | 同一把 IAM 金鑰的秘密值 | 建立 Access key 時顯示／下載的憑證；不是回報 Token |
+| 寄件 Gmail 帳號 | 寄出告警的完整 Gmail | 可以用你自己的 Gmail |
+| Google App Password | 該寄件帳戶的 16 碼應用程式密碼 | Google 帳戶 → 安全性 → 啟用兩步驟驗證 → 應用程式密碼；不可用一般登入密碼 |
+| 告警收件 Email | 接收通知的完整地址 | 可以和寄件信箱相同；多個用分號，例如 a@example.com;b@example.com |
+| Discord Webhook URL | 完整 Webhook 網址 | 目標伺服器／頻道 → 編輯頻道 → 整合 → Webhooks → 建立 → 複製 URL；需有管理 Webhook 權限 |
+| Grafana admin 密碼 | 自行設定至少 8 字元 | 這是新 Grafana 的登入密碼；不是 NAS、GitHub 或 Gmail 密碼 |
+
+Google 應用程式密碼可從 https://myaccount.google.com/apppasswords 開啟；如果沒有此功能，先確認兩步驟驗證及帳戶政策。兩個 IAM 欄位須來自同一把金鑰；Secret 遺失時無法重新查看，需建立新金鑰。不要為了監控填 AWS root 金鑰。
+
+在 **TrueNAS A → 系統 → Shell** 貼上以下唯讀命令，僅顯示辨識任務需要的欄位：
 
 ```bash
-sudo -i
+midclt call cloudsync.query | python3 -c 'import json,sys; print(json.dumps([{k:t.get(k) for k in ("id","description","path","direction","transfer_mode")} for t in json.load(sys.stdin)],ensure_ascii=False,indent=2))'
 ```
 
-接著整段貼上：
+依說明及來源路徑找出你要監控的 S3 任務，例如 `/mnt/mainpool/data`；以該列的 `id` 填入安裝器。若有多個相似任務，回雲端同步作業核對；本流程只監控填入的一個 Task ID。
+
+監控 IAM 使用以下政策，bucket 不同時替換 Resource 最後的名稱；它只需列舉，不需寫入／刪除權限。此金鑰與 TrueNAS 上傳 S3 使用的憑證可以分開。
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [{
+    "Effect": "Allow",
+    "Action": "s3:ListBucket",
+    "Resource": "arn:aws:s3:::truenas-backup-myhome-2026"
+  }]
+}
+```
+
+### 3-2. 在監測 VM 執行安裝
 
 ```bash
-(
-  set -e
-  dnf install -y git python3 python3-pyyaml
-  if [ -d /root/truenas-hybrid-cloud-monitoring/.git ]; then
-    git -C /root/truenas-hybrid-cloud-monitoring pull --ff-only origin main
-  else
-    git clone https://github.com/YICheng-Hao/truenas-hybrid-cloud-monitoring.git /root/truenas-hybrid-cloud-monitoring
-  fi
-  python3 /root/truenas-hybrid-cloud-monitoring/scripts/setup-monitoring-vm.py
-)
+python3 /root/truenas-hybrid-cloud-monitoring/scripts/setup-monitoring-vm.py
 ```
 
-若儲存庫仍為私人，`git clone` 需要你的 GitHub 帳號與可讀取此儲存庫的存取權；HTTPS 驗證不能使用 GitHub 一般登入密碼。不要將 Token 寫入網址或提交到儲存庫。
-
-依畫面逐項輸入步驟 1 的資料。預設值正確就按 Enter；出現 Tailscale 登入網址時，用瀏覽器開啟並完成登入／核准節點，讓命令繼續。
+安裝器先確認 Tailscale 已登入，再逐欄詢問。格式有誤會留在同一欄重填，避免全部填完才得知錯誤。這是格式檢查；IAM 權限、S3 存取與 NAS 指標會在安裝驗證時確認，Gmail／Discord 必須在步驟 5 實測收訊。
 
 安裝器會完成：
 
@@ -101,7 +149,13 @@ sudo -i
 python3 /root/truenas-hybrid-cloud-monitoring/scripts/setup-monitoring-vm.py
 ```
 
-若上次輸入有誤，以 `vi /root/monitoring-setup.json` 修正對應欄位後再重跑。此重跑方式適用於由本安裝器建立的 VM。
+若上次填錯，使用逐欄修改模式，不必自己改 JSON：
+
+```bash
+python3 /root/truenas-hybrid-cloud-monitoring/scripts/setup-monitoring-vm.py --edit-config
+```
+
+一般欄位按 Enter 保留顯示的舊值；秘密欄位按 Enter 保留舊值，輸入新值則替換。完成後會繼續安裝。此方式適用於由本安裝器建立的 VM。既有 Grafana 資料庫的 admin 密碼不會因重跑而重設；修改其他欄位時保留原 Grafana 密碼，若忘記密碼需另做 Grafana 密碼重設。
 
 ## 4. 將真實 Cloud Sync 成功回報接回新 VM
 
@@ -112,6 +166,18 @@ cat /root/truenas-cloudsync-postscript.sh
 ```
 
 複製顯示的完整腳本，貼到 TrueNAS A【資料保護 → 雲端同步作業 → 編輯你的 S3 任務 → 進階選項 → Post-script】，取代舊 VM 的回報腳本並儲存。腳本內沒有要你自行補的 IP／Token。
+
+**必須更新 TrueNAS A 的這一欄。** 只重建監測 VM 不會自動改動 NAS 上的 Post-script。你截圖中的舊網址只有 `http://100.x.x.x`，缺少 `:9108/success`，會送到錯誤的連接埠／路徑。
+
+| Post-script 內容 | 如何處理 |
+|---|---|
+| Authorization: Bearer 後面的值 | 新 VM 安裝器自動產生的 Receiver Token；不是 AWS 金鑰，不沿用手抄的 XXXXXX |
+| 回報網址 | 完整為 `http://監測VM的TailscaleIP:9108/success`；由檔案自動帶入 |
+| `${CLOUD_SYNC_ID}` | **原樣保留**；TrueNAS 執行同步任務時提供，不要改成 IP 或手填數字 |
+| 反斜線 `\` | Shell 換行符號，放在行末；直接複製整份檔案，不貼 `&#x20;` 或 Markdown 的三個反引號 |
+| Pre-script | 本監控回報不需修改這一欄 |
+
+若此 Post-script 原本還有其他用途的命令，保留它們，只替換舊的監控 curl 區塊。貼上後儲存，重新開啟任務確認最後網址包含 `:9108/success`。B 站不必加入這個 A 站 S3 任務的回報。
 
 接著在 TrueNAS A 對該任務按【Run Now】，確認任務 SUCCESS。回 Grafana 檢查「Cloud Sync 距成功回報」是否取得最近成功時間。此欄顯示的是實際任務回報；在第一次真實成功回報以前顯示無資料是預期狀態。
 
@@ -165,9 +231,7 @@ journalctl -u cloudsync-monitor -n 80 --no-pager
 
 S3 費用是單一儲存單價 × 目前物件容量的估算，不含請求、取回、生命週期、最低保存期與流量費，不等於 AWS 帳單。
 
-本次驗證包含設定產生測試、Prometheus／SNMP 設定檢查，以及 Grafana 13.2.4 真實程序載入九規則、十面板與雙通知聯絡點。尚未在全新 Rocky VM 完成整套系統級安裝演練；現場仍須依步驟 4、5 驗收真實 Cloud Sync 與通知收訊。
-
-Rocky 10 支援修正：依實際主版本選用 Tailscale 官方 RHEL 9／10 軟體源。版本偵測測試涵蓋 Rocky 10.2；尚未在完整 Rocky 10 VM 做端到端安裝驗證。官方來源：https://pkgs.tailscale.com/stable/ 。安裝命令使用子 Shell，失敗時不會因 `set -e` 結束目前 SSH Shell；已有專案目錄時採快轉更新，不重複 clone。
+歷史完整 VM 測試的範圍及提交見下方報告；其中 Tailnet 身分、NAS、S3、通知服務使用隔離替身。本次輸入流程調整的測試另外記錄於 [輸入流程修正驗證](input-flow-test-report.md)，不把歷史 VM 通過結果當作本次真實 Tailscale 登入已通過。
 
 ## 內部測試紀錄
 

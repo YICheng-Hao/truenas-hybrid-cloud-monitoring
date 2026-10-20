@@ -56,10 +56,17 @@ def validate(c):
         ipaddress.IPv4Address(c[key])
     if c['a_ip'] == c['b_ip']:
         raise ValueError('A、B IP 不可相同')
-    ipaddress.IPv4Network(c['admin_cidr'], strict=False)
-    if int(c['task_id']) < 1 or len(c['grafana_admin_password']) < 12:
-        raise ValueError('Task ID 必須大於 0；Grafana 密碼至少 12 字元')
-    if urllib.parse.urlparse(c['grafana_url']).scheme not in ('http', 'https'):
+    if '/' not in c['admin_cidr']:
+        raise ValueError('管理來源請填 CIDR：整個網段用 192.168.23.0/24；單台管理電腦用其 IP/32，不是監測 VM IP')
+    ipaddress.IPv4Network(c['admin_cidr'], strict=True)
+    if not c.get('snmp_community') or any(x in c['snmp_community'] for x in ['\n', '\r']):
+        raise ValueError('SNMP Community 不可空白或換行')
+    if not re.fullmatch(r'[a-z]{2}(?:-[a-z]+)+-\d+', c['region']):
+        raise ValueError('Region 請填區域代碼，例如 ap-east-2，不是區域中文名稱')
+    if int(c['task_id']) < 1 or len(c['grafana_admin_password']) < 8:
+        raise ValueError('Task ID 必須大於 0；Grafana 密碼至少 8 字元')
+    grafana = urllib.parse.urlparse(c['grafana_url'])
+    if grafana.scheme not in ('http', 'https') or not grafana.hostname:
         raise ValueError('Grafana URL 必須是 http 或 https')
     url = urllib.parse.urlparse(c['discord_webhook'])
     if url.scheme != 'https' or url.hostname not in ('discord.com', 'discordapp.com') or not url.path.startswith('/api/webhooks/'):
@@ -73,38 +80,94 @@ def validate(c):
         raise ValueError('告警收件地址格式錯誤')
     c['alert_email_to'] = ';'.join(x.strip() for x in recipients)
 
-def create_input(path):
-    if path.exists():
-        config = json.loads(path.read_text())
-        validate(config)
-        print('沿用既有輸入檔：' + str(path))
-        return config
+def prompt_field(c, key, label, default='', secret=False, help_text=''):
+    if help_text:
+        print('\n' + help_text, flush=True)
+    while True:
+        value = ask(label, default, secret=secret)
+        if key == 'smtp_password':
+            value = value.replace(' ', '')
+        candidate = dict(c, **{key: value})
+        try:
+            # Validate this field using harmless valid values for fields not asked yet.
+            validate(candidate)
+            c[key] = int(value) if key == 'task_id' else candidate[key]
+            return
+        except (ValueError, TypeError) as error:
+            print('輸入未接受：' + str(error) + '；請重新填這一欄。', flush=True)
+
+
+def create_input(path, edit=False):
+    previous = json.loads(path.read_text()) if path.exists() else {}
+    if previous and not edit:
+        validate(previous)
+        print('沿用既有輸入檔：' + str(path) + '；需重填請加 --edit-config')
+        return previous
     route = json.loads(run('ip', '-j', 'route', 'get', '1.1.1.1', capture=True))[0]
     address = route.get('prefsrc') or route.get('src')
     if not address:
         raise RuntimeError('找不到管理 IP，請先設定 VM 網路及預設路由')
-    c = {'a_ip': ask('A 站 Tailscale IP', '100.114.236.88'),
-         'b_ip': ask('B 站 Tailscale IP', '100.113.107.95'),
-         'admin_cidr': ask('可管理此 VM 的來源網段', str(ipaddress.ip_network(address + '/24', strict=False))),
-         'grafana_url': ask('Grafana 瀏覽網址', f'http://{address}:3000/'),
-         'bucket': ask('S3 儲存桶', 'truenas-backup-myhome-2026'),
-         'region': ask('AWS Region', 'ap-east-2'),
-         'task_id': int(ask('TrueNAS A Cloud Sync Task ID', '1')),
-         'snmp_community': ask('兩站 SNMP Community', 'public'),
-         'aws_access_key_id': ask('監控 IAM Access Key ID', secret=True),
-         'aws_secret_access_key': ask('監控 IAM Secret Access Key', secret=True),
-         'smtp_user': ask('寄件 Gmail 帳號'),
-         'smtp_password': ask('Google App Password（隱藏輸入）', secret=True).replace(' ', ''),
-         'alert_email_to': ask('告警收件 Email；多個以分號分隔'),
-         'discord_webhook': ask('Discord Webhook（隱藏輸入）', secret=True),
-         'grafana_admin_password': ask('新 Grafana admin 密碼，至少12字元（隱藏輸入）', secret=True)}
+    c = {'a_ip':'100.114.236.88', 'b_ip':'100.113.107.95',
+         'admin_cidr':str(ipaddress.ip_network(address + '/24', strict=False)),
+         'grafana_url':f'http://{address}:3000/', 'bucket':'truenas-backup-myhome-2026',
+         'region':'ap-east-2', 'task_id':1, 'snmp_community':'public',
+         'aws_access_key_id':'pending', 'aws_secret_access_key':'pending',
+         'smtp_user':'pending@example.invalid', 'smtp_password':'pending',
+         'alert_email_to':'pending@example.invalid',
+         'discord_webhook':'https://discord.com/api/webhooks/pending/pending',
+         'grafana_admin_password':'pending-password'}
+    fields = [
+        ('a_ip','A 站 Tailscale IP',False,'到 Tailscale 管理頁找 A 站 NAS 的 100.x IP；不是監測 VM，也不是 192.168.x IP。'),
+        ('b_ip','B 站 Tailscale IP',False,'同上，改找 B 站 NAS；A、B 位址不可相同。'),
+        ('admin_cidr','可管理此 VM 的來源網段（必須含 /24 或 /32）',False,
+         '填開啟 Grafana 的管理電腦來源：例如同網段全部允許 192.168.23.0/24；只允許某台電腦用該電腦 IP/32。不是監測 VM 的位址。'),
+        ('grafana_url','Grafana 瀏覽網址',False,'填瀏覽器開啟監測 VM 的完整網址，包含 http:// 與 :3000/；預設依 VM IP 偵測。'),
+        ('bucket','S3 儲存桶',False,'AWS S3 → Buckets，複製目的儲存桶名稱；不含 s3:// 或路徑。'),
+        ('region','AWS Region',False,'在該 S3 bucket 內容確認區域代碼；例如 ap-east-2。'),
+        ('task_id','TrueNAS A Cloud Sync Task ID',False,'在 TrueNAS A Shell 執行 midclt call cloudsync.query，依 description/path 找出該 S3 任務的 id；不是 job ID。'),
+        ('snmp_community','兩站 SNMP Community',False,'填 TrueNAS A、B SNMP 服務的 Community，兩站必須一致。'),
+        ('aws_access_key_id','監控 IAM Access Key ID',True,'AWS IAM → 監控用使用者 → 安全憑證 → 存取金鑰；此處填 Access key ID。不可空白。'),
+        ('aws_secret_access_key','監控 IAM Secret Access Key',True,'填同一把金鑰的 Secret access key；只在建立時提供。不是 TrueNAS 回報 Token。'),
+        ('smtp_user','寄件 Gmail 帳號',False,'填用來寄出告警的完整 Gmail 地址。'),
+        ('smtp_password','Google App Password',True,'Google 帳戶啟用兩步驟驗證後建立應用程式密碼；填 16 碼應用程式密碼，不是一般登入密碼。'),
+        ('alert_email_to','告警收件 Email；多個以分號分隔',False,'填接收告警的完整信箱；可以和寄件 Gmail 相同。'),
+        ('discord_webhook','Discord Webhook URL',True,'Discord 目標頻道 → 編輯頻道 → 整合 → Webhooks → 建立／複製 Webhook URL；填完整 https://discord.com/api/webhooks/...。'),
+        ('grafana_admin_password','Grafana admin 密碼，至少8字元',True,'自行設定至少 8 碼的新 Grafana 登入密碼；隱藏輸入時不顯示星號，正常輸入後按 Enter。')]
+    print('所有欄位皆必填。一般欄位 Enter 採用 [預設值]；秘密不顯示。編輯時秘密直接 Enter 保留舊值。', flush=True)
+    for key, label, secret, help_text in fields:
+        default = previous.get(key, c[key] if not secret and key not in ('smtp_user','alert_email_to') else '')
+        prompt_field(c, key, label, str(default), secret, help_text)
     validate(c)
     path.parent.mkdir(parents=True, exist_ok=True)
-    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    os.fchmod(fd, 0o600)
     with os.fdopen(fd, 'w') as stream:
         json.dump(c, stream, ensure_ascii=False, indent=2)
         stream.write('\n')
     return c
+
+
+def setup_tailscale(major):
+    print('先完成 Tailscale 登入，再填監控資料。', flush=True)
+    run('dnf','install','-y','dnf-plugins-core')
+    if not shutil.which('tailscale'):
+        run('dnf','config-manager','--add-repo',f'https://pkgs.tailscale.com/stable/rhel/{major}/tailscale.repo')
+        run('dnf','install','-y','tailscale')
+    run('systemctl','enable','--now','tailscaled')
+    status=json.loads(run('tailscale','status','--json',capture=True))
+    if status.get('BackendState') != 'Running':
+        print('請開啟下方 https://login.tailscale.com/... 網址，登入與 A／B 相同的帳戶並核准節點。',flush=True)
+        run('tailscale','up')
+        status=json.loads(run('tailscale','status','--json',capture=True))
+        if status.get('BackendState') != 'Running':
+            raise RuntimeError('Tailscale 尚未就緒；請到管理頁核准節點後重跑 --tailscale-only')
+    else:
+        print('此 VM 已登入 Tailscale，因此不會再出現新的登入網址，不需要登出。',flush=True)
+    ts_ip=run('tailscale','ip','-4',capture=True).splitlines()[0]
+    ipaddress.IPv4Address(ts_ip)
+    print('監測 VM Tailscale IP：' + ts_ip, flush=True)
+    return ts_ip
+
 
 def replace_values(obj, c):
     if isinstance(obj, dict):
@@ -330,7 +393,10 @@ def verify(c, ts_ip):
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--config',default='/root/monitoring-setup.json')
-    parser.add_argument('--verify-only',action='store_true')
+    modes=parser.add_mutually_exclusive_group()
+    modes.add_argument('--verify-only',action='store_true')
+    modes.add_argument('--tailscale-only',action='store_true',help='只安裝與登入 Tailscale，不詢問監控資料')
+    modes.add_argument('--edit-config',action='store_true',help='逐欄重填已保存的資料後繼續安裝')
     args=parser.parse_args()
     if os.geteuid()!=0:
         raise SystemExit('請先 sudo -i')
@@ -341,25 +407,20 @@ def main():
         return
     osinfo=Path('/etc/os-release').read_text()
     major=rocky_major(osinfo, run('uname','-m',capture=True))
+    if args.tailscale_only:
+        setup_tailscale(major)
+        print('Tailscale 步驟完成。接著依文件準備 TrueNAS 與監控資料，再執行安裝器。')
+        return
     if not (STATE/'managed.json').exists() and any(Path(p).exists() for p in ['/etc/prometheus/prometheus.yml','/var/lib/grafana/grafana.db']):
         raise SystemExit('偵測到未由此腳本建立的監控設定。這是全新 VM 安裝器，已停止，未覆寫現有服務。')
-    c=create_input(Path(args.config))
+    ts_ip=setup_tailscale(major)
+    c=create_input(Path(args.config), edit=args.edit_config)
     STATE.mkdir(mode=0o700,parents=True,exist_ok=True)
     (STATE/'managed.json').write_text(json.dumps({'managed':True,'version':1}))
-    print('[1/6] 安裝套件、校時與 Tailscale',flush=True)
+    print('[1/6] 安裝監控依賴套件與校時（Tailscale 已完成）',flush=True)
     run('dnf','install','-y','dnf-plugins-core','curl','git','tar','gzip','unzip','jq','python3-pyyaml','net-snmp-utils','chrony','firewalld')
     run('systemctl','enable','--now','chronyd','firewalld')
     run('timedatectl','set-timezone','Asia/Taipei')
-    if not shutil.which('tailscale'):
-        run('dnf','config-manager','--add-repo',f'https://pkgs.tailscale.com/stable/rhel/{major}/tailscale.repo')
-        run('dnf','install','-y','tailscale')
-    run('systemctl','enable','--now','tailscaled')
-    status=json.loads(run('tailscale','status','--json',capture=True))
-    if status.get('BackendState')!='Running':
-        print('請完成下方 Tailscale 登入／節點核准。',flush=True)
-        run('tailscale','up')
-    ts_ip=run('tailscale','ip','-4',capture=True).splitlines()[0]
-    ipaddress.IPv4Address(ts_ip)
     print('[2/6] 安裝監控主程式與 Grafana',flush=True)
     Path('/etc/yum.repos.d/grafana.repo').write_text('[grafana]\nname=grafana\nbaseurl=https://rpm.grafana.com\nrepo_gpgcheck=1\nenabled=1\ngpgcheck=1\ngpgkey=https://rpm.grafana.com/gpg.key\nsslverify=1\nsslcacert=/etc/pki/tls/certs/ca-bundle.crt\n')
     run('dnf','install','-y','grafana-13.2.4')
