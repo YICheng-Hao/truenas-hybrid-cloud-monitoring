@@ -10,32 +10,21 @@
 - 量測基準時間使用同一時區並確認時鐘同步。開始、告警接收、資料可用及恢復保護的時間分開記錄。
 - B 平時不提供員工 SMB；接管時才確認或建立所需帳號、群組、共用與路由。複寫資料集不代表 NAS 使用者、SMB 設定會自動一起複寫。
 
-## 2. 資料碟故障與 RAID-Z2 重建
+## 2. 雙碟故障自動告警與 RAID-Z2 復原
 
-1. 確認資料池 ONLINE，於 A 的 Windows 用戶端持續讀寫測試檔案並記錄失敗或延遲；B 則檢查備份與管理功能。
-2. 在隔離 VM 模擬一顆資料碟故障，核對 pool 狀態及故障序號。SNMP 可以保持可採集；採集正常不代表 pool 健康。
-3. 留存 DEGRADED、Grafana 規則、Email／Discord 接收時間。通知時間包含採集、規則評估、持續時間與通知等待，不能保證恰好兩分鐘收訊。
-4. 接上容量符合 Replace 要求的新磁碟，於 TrueNAS「儲存 → 目標 pool → 管理裝置」核對故障裝置並執行 Replace，觀察 resilver。請依使用版本的 UI 與虛擬控制器能力操作。
-5. 確認重建完成、pool ONLINE、錯誤狀態及測試檔案 SHA-256，核對恢復通知。分別記錄服務中斷時間與冗餘恢復時間。
-6. 單碟測試不能證明雙碟實測通過。RAID-Z2 的兩碟容錯是每組 VDEV；雙碟 Mirror 只有一碟容錯。Scrub 為日常完整性巡檢，不替代備份。
+對應 Word **8.1**。情境為在 VMware 移除 TrueNAS A 同一組 RAID-Z2 的**兩顆資料碟**，確認主動告警，再加入兩顆新碟、逐顆 Replace／resilver 並驗收資料與恢復通知。
 
-### VM 新磁碟未顯示時
+請由 [災難情境模擬測試 01：雙碟故障完整實作流程](raidz2-dual-disk-drill.md) 開始，內含：
 
-先核對 VM 的資料碟與控制器；若沒有啟用或支援熱插拔，依平台流程安全關機再加入資料碟。僅在新磁碟已接入而 NAS 清單未更新時，由管理員在**要換碟的 NAS**執行：
+1. VMware VMDK／device node 與 NAS 序號／成員 GUID 對照，避免誤動開機 Mirror。
+2. Windows SMB 測試檔與故障前、降級期間、重建後的 SHA-256／讀寫驗證。
+3. VMware 移除兩顆資料碟、關機離線與開機後 DEGRADED 的分開記錄。
+4. Grafana 降級／成員異常規則、Prometheus 唯讀查詢、Email／Discord 真實告警。
+5. 加入兩顆新 VMDK、TrueNAS SCSI／udev 掃描與 disk.sync_all。
+6. 第一顆重建完成後仍 DEGRADED，再替換第二顆，直到 pool／成員 ONLINE。
+7. 規則 Normal、雙管道恢復通知、時間表、D01–D14 截圖與通過標準。
 
-```bash
-sudo -i
-lsblk -o NAME,SIZE,MODEL,SERIAL,TYPE
-for h in /sys/class/scsi_host/host*; do
-  echo "- - -" > "$h/scan"
-done
-udevadm trigger
-udevadm settle
-midclt call disk.sync_all
-lsblk -o NAME,SIZE,MODEL,SERIAL,TYPE
-```
-
-`udevadm trigger` 後使用 `udevadm settle` 等待裝置事件處理完成，取代固定等待兩秒；若已是 root 可省略 `sudo -i`。這些是掃描與同步清單命令，不會執行 Replace，也不等於重建成功。若控制器沒有 SCSI host，需依平台與控制器確認偵測方式，勿反覆掃描或更動錯誤磁碟。
+RAID-Z2 的兩碟容錯是每組 VDEV；兩顆開機 Mirror 不適用此雙碟移除流程。關機操作包含計畫性停機，不宣稱全程不中斷。上述文件是測試程序，**實際雙碟演練結果仍待填寫**；單碟測試或既有替身測試不能代替本輪。
 
 ## 3. 誤刪或勒索加密
 
@@ -117,7 +106,7 @@ aws s3api head-object \
 
 | 情境 | 事故時間 | 還原點／資料時間 | 告警收訊時間 | 服務通過時間 | RPO | RTO | 檔案／ACL／日誌證據 |
 |---|---|---|---|---|---|---|---|
-| 單資料碟故障 | 待填 | 待填 | 待填 | 待填 | 待量測 | 待量測 | 待補 |
+| 雙資料碟故障 | 待填 | 待填 | 待填 | 待填 | 待量測 | 待量測 | 待補 |
 | 誤刪／加密 | 待填 | 待填 | 待填 | 待填 | 待量測 | 待量測 | 待補 |
 | B 站接管 | 待填 | 待填 | 待填 | 待填 | 待量測 | 待量測 | 待補 |
 | S3／封存復原 | 待填 | 待填 | 待填 | 待填 | 待量測 | 待量測 | 待補 |
