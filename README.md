@@ -24,6 +24,11 @@ sudo -i
 
 自動部署四個 Prometheus Job、十個面板、九條告警、繁體中文模板、雙通知聯絡點與預設通知路由。最後將自動產生的 `/root/truenas-cloudsync-postscript.sh` 內容貼到 TrueNAS A 的 Cloud Sync Post-script，執行真實同步，再測試 Email／Discord 收訊。首次真實成功前，Cloud Sync 時間沒有資料是預期狀態。
 
+## 災難情境模擬測試
+
+- [測試 01：VMware 雙碟故障自動告警與 RAID-Z2 復原](docs/raidz2-dual-disk-drill.md)：移除 TrueNAS A 兩顆資料碟、驗證真實通知、掃描兩顆新碟、逐顆 Replace／resilver、核對檔案與恢復通知。含完整實作、截圖清單及結果表；目前為程序，實際演練結果待填。
+- [其他災難復原與驗收流程](docs/disaster-recovery-drill.md)：快照復原、B 站接管、S3／Glacier 取回與 RPO／RTO 量測。
+
 ## 固定使用的設定
 
 - `scripts/setup-monitoring-vm.py`：全新監測 VM 安裝／唯讀驗證；重跑保留 Receiver Token 與回報檔，拒絕覆寫未受管的既有 VM。
