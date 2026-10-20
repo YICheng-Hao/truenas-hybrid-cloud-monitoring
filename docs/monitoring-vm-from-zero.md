@@ -121,6 +121,56 @@ midclt call cloudsync.query | python3 -c 'import json,sys; print(json.dumps([{k:
 }
 ```
 
+
+### 3-1-1. 建立監控專用 IAM 使用者並申請金鑰
+
+Word 第七章僅保留建置順序、必要欄位及驗收證據；本節保存完整 AWS 操作與監測 VM 設定說明。
+
+1. 使用有 IAM 管理權限的 AWS 身分登入主控台；不需另註冊一個 AWS 帳戶。原有 S3 bucket、TrueNAS 備份使用者與同步作業沿用。
+2. 開啟 **IAM → Policies → Create policy → JSON**，貼上前述政策。Resource 改成實際 bucket ARN，格式為 `arn:aws:s3:::桶名`，不要加 `/*`；政策命名為 `S3-ListBucket-Only`。只授權目標桶的 `s3:ListBucket`，不需 GetObject、PutObject、DeleteObject 或 CloudWatch API 權限。
+3. 開啟 **IAM → Users → Create user**，輸入 `prometheus-cloudwatch-reader`。不啟用主控台存取；選擇直接附加上述政策，建立後到 Permissions 確認。
+4. 開啟該使用者 **Security credentials → Access keys → Create access key**。依本專案在 AWS 外部 Rocky Linux VM 使用 AWS CLI 的情境選擇 **Command Line Interface (CLI)**，閱讀並確認提示，描述標籤可自行填寫。
+5. 建立後保存同一組 **Access Key ID** 與 **Secret Access Key**，可下載 CSV。Secret 只在建立時顯示；遺失需重新建立金鑰，再更新安裝器。不要把 CSV、金鑰或含秘密的截圖上傳 GitHub。
+6. 將兩個值分別填入安裝器的監控 IAM 欄位。這是重複第六章「申請存取金鑰」的流程，但使用監控專用身分，不沿用備份寫入憑證。若已有該監控使用者的有效金鑰，可直接使用。
+
+| 身分 | 所在位置 | 用途 |
+|---|---|---|
+| 原有 AWS 帳戶 | AWS | 管理既有 S3 與 IAM，不另註冊帳戶 |
+| `truenas-backup-user` | AWS IAM | 原有 TrueNAS 備份寫入身分 |
+| `prometheus-cloudwatch-reader` | AWS IAM | 專用 S3 清單讀取金鑰 |
+| `cloudwatch_exporter` | Rocky Linux | 安裝器建立的系統帳號，不用於登入 AWS |
+
+### 3-1-2. S3 Exporter 由安裝器部署的內容
+
+AWS IAM 政策、使用者及存取金鑰須先由管理員建立。監測 VM 的以下部分已由安裝器處理，使用安裝器流程時不要再重複手動建立另一套服務：
+
+| 項目 | 路徑或值 |
+|---|---|
+| Linux 系統使用者 | `cloudwatch_exporter`，不允許一般登入 |
+| AWS 憑證目錄 | `/etc/cloudwatch_exporter`，權限 750 |
+| AWS 憑證檔 | `/etc/cloudwatch_exporter/credentials`，擁有者 cloudwatch_exporter，權限 600 |
+| Exporter 程式 | `/usr/local/bin/s3_realtime_exporter.py` |
+| 環境變數檔 | `/etc/s3-exporter.env` |
+| systemd 服務 | `s3_realtime_exporter.service` |
+| 指標入口 | `http://127.0.0.1:9107/metrics`，僅本機 |
+
+唯讀檢查服務及 S3 指標：
+
+```bash
+systemctl status s3_realtime_exporter --no-pager
+curl -fsS http://127.0.0.1:9107/metrics
+```
+
+需要直接核對物件數與容量時，在監測 VM 的 root Shell 執行以下命令，將 Region、bucket 改成安裝時使用的值：
+
+```bash
+su -s /bin/bash -c 'AWS_SHARED_CREDENTIALS_FILE=/etc/cloudwatch_exporter/credentials AWS_DEFAULT_REGION=ap-east-2 aws s3 ls s3://truenas-backup-myhome-2026/ --recursive --summarize' cloudwatch_exporter | tail -5
+```
+
+此命令只列舉物件，不下載或修改物件；大型 bucket 列舉可能較久並產生請求費。應看到 Total Objects 與 Total Size。若 AccessDenied，核對金鑰對應使用者、附加政策及 bucket ARN；若 bucket policy、SCP 或 permissions boundary 有明確拒絕，也需由 AWS 管理員檢查。錯誤時不要改用 root 金鑰或直接授予完整 S3 權限。
+
+監控新增的是清單讀取權限；原有 bucket、生命週期及 TrueNAS 上傳憑證不需因本章重新建立。費用指標只依容量及設定單價估算，不等於 AWS 帳單。
+
 ### 3-2. 在監測 VM 執行安裝
 
 ```bash
