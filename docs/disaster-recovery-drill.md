@@ -29,12 +29,13 @@ lsblk -o NAME,SIZE,MODEL,SERIAL,TYPE
 for h in /sys/class/scsi_host/host*; do
   echo "- - -" > "$h/scan"
 done
+udevadm trigger
 udevadm settle
 midclt call disk.sync_all
 lsblk -o NAME,SIZE,MODEL,SERIAL,TYPE
 ```
 
-這些是掃描與同步清單命令，不會執行 Replace，也不等於重建成功。若控制器沒有 SCSI host，需依平台與控制器確認偵測方式，勿反覆掃描或更動錯誤磁碟。
+`udevadm trigger` 後使用 `udevadm settle` 等待裝置事件處理完成，取代固定等待兩秒；若已是 root 可省略 `sudo -i`。這些是掃描與同步清單命令，不會執行 Replace，也不等於重建成功。若控制器沒有 SCSI host，需依平台與控制器確認偵測方式，勿反覆掃描或更動錯誤磁碟。
 
 ## 3. 誤刪或勒索加密
 
