@@ -159,7 +159,35 @@ python3 /root/truenas-hybrid-cloud-monitoring/scripts/setup-monitoring-vm.py --e
 
 ## 4. 必做：更新 TrueNAS A 的 Cloud Sync Post-script
 
-### 4-1. 指令方式：產生並套用 TrueNAS A 更新命令（已安裝 VM 不需重裝）
+### 4-1. 手動寫入 TrueNAS Post-script（建議先使用此方式）
+
+**這一步需要管理員在 TrueNAS A 完成。監測 VM 安裝器只產生回報腳本，不會自動改寫 NAS 的雲端同步作業。每次重建監測 VM、變更 Receiver IP 或 Token 後，都要重新核對並更新 NAS。**
+
+1. 在**監測 VM 的 root 終端機**執行：
+
+   ```bash
+   cat /root/truenas-cloudsync-postscript.sh
+   ```
+
+2. 複製輸出的**完整短腳本**：從第一行 `#!/bin/sh` 到最後一行包含 `Cloud Sync callback failed` 的命令。不要複製終端機提示字元或 Markdown 的三個反引號。
+3. 在 **TrueNAS A Web UI** 開啟【資料保護 → 雲端同步作業 → 編輯對應 S3 任務 → 進階選項 → **Post-script**】。
+4. 若欄位中只有舊監控回報腳本，先全選刪除，再貼上剛才的完整短腳本。**網址與 Authorization Token 必須一起替換，不能只改 IP。** 若還有其他業務用途的命令，先保留它們，只完整替換舊監控回報區塊。
+5. 按【儲存】，重新開啟任務，確認 Post-script 已保存。不是貼到 Pre-script，也不是只在監測 VM 終端機把內容顯示出來就完成。
+6. 依第 4-3 節執行一次真實同步並核對回報。
+
+| 貼入內容 | 核對重點 |
+|---|---|
+| `Authorization: Bearer` 後面的值 | 使用這台監測 VM 產生的完整新 Token；不要保留舊 VM 的 Token，不是 AWS 金鑰 |
+| 回報網址 | 完整為 `http://監測VM的TailscaleIP:9108/success`，含連接埠與路徑；以產生檔案為準 |
+| `${CLOUD_SYNC_ID}` | 原樣保留，由 TrueNAS 執行任務時提供，不改成手填數字 |
+| 行末反斜線 `\` | 完整保留，不貼入 `&#x20;` 或自行折斷命令 |
+| 結尾的 logger 命令 | 完整保留，回報失敗時留下訊息 |
+
+例如本次新監測 VM 的回報位址為 `http://100.108.201.34:9108/success`；這只是現場案例，其他人應使用自己產生檔案中的位址。GitHub 文件不保存真實 Token。B 站不需加入這個 A 站 S3 任務的回報。
+
+**現場已遇到的錯誤：只把舊網址改成新網址，卻保留舊 Token。** Receiver 會拒絕驗證；本專案 Receiver 的 Token 不符時回傳 HTTP 403。使用 `curl -f` 時，HTTP 錯誤可能呈現 `Post-script failed with exit code 22`；22 本身不能單獨判斷為 403，需配合任務日誌確認。本次截圖可直接確認兩端 Token 不一致，完整替換腳本後，使用者回報已恢復正常。不能僅將 `|| true` 加回去讓任務表面成功，必須確認 Receiver 收到新的成功回報。
+
+### 4-2. 可選：透過 TrueNAS Shell 更新（與手動方式擇一）
 
 **監測 VM 安裝與 NAS 設定是兩個步驟，安裝器不會自行登入 NAS 修改 Cloud Sync。** 在監測 VM 的 root Shell 執行：
 
@@ -173,31 +201,9 @@ cat /root/truenas-cloudsync-apply-command.sh
 
 複製最後一行顯示的全部輸出（從 `python3 - <<'TRUENAS_CLOUDSYNC_UPDATE'` 到最後獨立一行 `TRUENAS_CLOUDSYNC_UPDATE`），貼到 **TrueNAS A 的 root Shell**。一般管理帳號開 Shell 時先執行 `sudo -i`。不要把這份更新命令貼進 Post-script 欄位；它是修改該欄位的 NAS 管理命令，和 curl 回報腳本用途不同。
 
-命令會按 Task ID 讀取任務，確認是預期 bucket 的 PUSH 任務，先將舊 Post-script 備份到 NAS 的 `/root/cloudsync-postscript-backups/`（權限 600），再只更新 `post_script`，最後讀回核對。排程、來源、目的、COPY／SYNC 模式及 Pre-script 不變。已一致就不重寫；若舊內容包含無法辨識的自訂命令，會停止，改用下方 Web UI 方式保留其他命令。
+命令會按 Task ID 讀取任務，確認是預期 bucket 的 PUSH 任務，先將舊 Post-script 備份到 NAS 的 `/root/cloudsync-postscript-backups/`（權限 600），再只更新 `post_script`，最後讀回核對。排程、來源、目的、COPY／SYNC 模式及 Pre-script 不變。已一致就不重寫；若舊內容包含無法辨識的自訂命令，會停止，改用上方 Web UI 方式保留其他命令。
 
 工具不用手填 IP／Token，不會輪替 Token、啟動同步、假造成功回報或重裝 Grafana。產生的命令含秘密，只在你的 VM／NAS 間複製，不要提交 GitHub 或分享截圖。NAS root 目錄的備份應另依你的備份政策保存。
-
-### 4-2. Web UI 方式（與上方指令方式擇一）
-
-在監測 VM 執行以下命令，顯示安裝器已帶入實際 IP 與 Token 的 Post-script：
-
-```bash
-cat /root/truenas-cloudsync-postscript.sh
-```
-
-複製顯示的完整腳本，貼到 TrueNAS A【資料保護 → 雲端同步作業 → 編輯你的 S3 任務 → 進階選項 → Post-script】，取代舊 VM 的回報腳本並儲存。腳本內沒有要你自行補的 IP／Token。
-
-**必須更新 TrueNAS A 的這一欄。** 只重建監測 VM 不會自動改動 NAS 上的 Post-script。你截圖中的舊網址只有 `http://100.x.x.x`，缺少 `:9108/success`，會送到錯誤的連接埠／路徑。
-
-| Post-script 內容 | 如何處理 |
-|---|---|
-| Authorization: Bearer 後面的值 | 新 VM 安裝器自動產生的 Receiver Token；不是 AWS 金鑰，不沿用手抄的 XXXXXX |
-| 回報網址 | 完整為 `http://監測VM的TailscaleIP:9108/success`；由檔案自動帶入 |
-| `${CLOUD_SYNC_ID}` | **原樣保留**；TrueNAS 執行同步任務時提供，不要改成 IP 或手填數字 |
-| 反斜線 `\` | Shell 換行符號，放在行末；直接複製整份檔案，不貼 `&#x20;` 或 Markdown 的三個反引號 |
-| Pre-script | 本監控回報不需修改這一欄 |
-
-若此 Post-script 原本還有其他用途的命令，保留它們，只替換舊的監控 curl 區塊。貼上後儲存，重新開啟任務確認最後網址包含 `:9108/success`。B 站不必加入這個 A 站 S3 任務的回報。
 
 ### 4-3. 執行真實同步，再核對 Receiver 與 Prometheus
 
@@ -215,11 +221,11 @@ python3 /root/truenas-hybrid-cloud-monitoring/scripts/prepare-cloudsync-handoff.
 |---|---|
 | 仍然使用舊網址 | 重新開啟 NAS 任務確認，網址應是新 VM 的 Tailscale IP 加 `:9108/success` |
 | 連線逾時／拒絕 | 核對 NAS 到 VM 的 Tailnet 權限、TCP 9108、防火牆、Receiver 狀態與監聽 IP |
-| HTTP 403 | NAS Token 與新 VM Receiver 不一致；重新產生並套用更新命令，不猜測／重用舊 Token |
+| HTTP 403／只改網址後仍失敗 | 依第 4-1 節完整替換 Post-script，包含新 Token；不要只改 IP |
 | HTTP 400／未提供 CLOUD_SYNC_ID | 確認在真正 Cloud Sync Post-script 執行，保留 `${CLOUD_SYNC_ID}` |
 | Receiver 有紀錄、Grafana 尚無紀錄 | 比對安裝設定 Task ID 與實際任務 id，確認 Prometheus 的 cloudsync_success Target 為 UP |
 
-2026-10-20 現場問題：NAS 截圖仍指向舊 VM，且缺少連接埠／路徑；新 VM 沒收到回報。需要完成更新 NAS 的交接步驟。新增工具的驗證範圍見 [Cloud Sync 設定交接測試](cloudsync-handoff-test-report.md)。
+2026-10-20 現場問題與修復：NAS 最初指向舊 VM 且缺少連接埠／路徑；改網址後仍保留舊 Token，回報驗證失敗。依第 4-1 節完整替換 Post-script 後，使用者回報已可正常使用。這是使用者現場結果，並非新增一輪自動化 VM 測試。新增工具的驗證範圍見 [Cloud Sync 設定交接測試](cloudsync-handoff-test-report.md)。
 
 API 依據：[TrueNAS 25.10 cloudsync.update](https://api.truenas.com/v25.10/api_methods_cloudsync.update.html) 的 `post_script` 欄位；工具在 NAS 本機透過 `midclt` 呼叫。
 
