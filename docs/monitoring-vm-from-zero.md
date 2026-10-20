@@ -334,3 +334,42 @@ S3 費用是單一儲存單價 × 目前物件容量的估算，不含請求、�
 ## 內部測試紀錄
 
 本流程的測試輪數、發現問題與修正結果見 [安裝測試報告](installation-test-report.md)。完整 VM 整合測試使用真實 Rocky／systemd／SELinux 與正式監控程式；外部服務與 Tailnet 身分使用隔離替身，不代表已驗證你的真實帳號、跨站網路或硬碟重建。
+
+## Word 精簡版對照與補充操作
+
+Word 第七章保留建置順序，完整操作依本文件各節執行：
+
+| Word 項目 | GitHub 對應 |
+|---|---|
+| VM 建立、套件與 GitHub 下載／私人儲存庫登入 | 第 1、1-1 節 |
+| Tailscale 登入網址、已登入而無新網址、A／B 與 VM IP 區分 | 第 1-2 節 |
+| 安裝器全部欄位與 Cloud Sync Task ID 唯讀查詢 | 第 3-1 節 |
+| IAM 政策、專用使用者、重新申請 Access Key／Secret | 第 3-1、3-1-1 節 |
+| Linux 系統帳號、AWS 憑證與 S3 Exporter 路徑及檢查指令 | 第 3-1-2 節 |
+| NAS SNMP 附屬參數與重啟 | 第 2 節 |
+| 重跑、逐欄改設定與既有 Grafana 密碼限制 | 第 3-2 節 |
+| A 站 Post-script 手動貼入、IP 與 Token 一起更新 | 第 4-1 節 |
+| 可選 NAS Shell 更新與真實同步後回報核對 | 第 4-2、4-3 節 |
+| Targets、服務、面板、Email／Discord 與告警持續時間 | 第 5、6 節 |
+
+**依 Word 的「安裝器 → NAS 設定」順序操作時**：若兩站尚未設定 SNMP，安裝器末段的真實指標驗證可能停止；不是已通過。完成 Word 7.4（本文件第 2 節）的兩站 SNMP 後，回監測 VM 重跑同一安裝命令，沿用保存設定再驗證。安裝前先完成 SNMP 則可減少一次中斷。
+
+### Grafana Web UI 無法連入時
+
+先確認瀏覽器使用的是監測 VM 可達的管理 IP 加 `:3000/`，不是 Tailscale 登入網址。在監測 VM 的 root 終端機唯讀檢查：
+
+```bash
+ip -br addr
+systemctl is-active grafana-server
+curl -fsS http://127.0.0.1:3000/api/health
+ss -lntp | grep ':3000'
+firewall-cmd --list-all
+journalctl -u grafana-server -n 80 --no-pager
+```
+
+- 本機 health 失敗：先依服務狀態及日誌修正 Grafana，再檢查管理端網路。
+- 本機正常、管理端無法連入：檢查 Host-Only／Gateway 路由、來源 CIDR 及 TCP 3000；防火牆應放行**管理電腦的來源網段或該電腦 IP/32**。
+- 安裝器來源 CIDR 填成 VM 自己的 IP 時，依第 3-2 節用 `--edit-config` 修正並套用，不需重建全部 VM。
+- 出現登入畫面但密碼不符：既有 Grafana 資料庫的密碼不會因重跑而重設；這與 Web UI 無法建立連線是不同問題。
+
+第八章刪減的磁碟掃描、快照 Clone／Rollback、B 接管／回切、S3 解凍指令、權限與 RPO／RTO 量測，改收錄於 [災難復原演練完整流程](disaster-recovery-drill.md)。
