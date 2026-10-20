@@ -373,3 +373,41 @@ journalctl -u grafana-server -n 80 --no-pager
 - 出現登入畫面但密碼不符：既有 Grafana 資料庫的密碼不會因重跑而重設；這與 Web UI 無法建立連線是不同問題。
 
 第八章刪減的磁碟掃描、快照 Clone／Rollback、B 接管／回切、S3 解凍指令、權限與 RPO／RTO 量測，改收錄於 [災難復原演練完整流程](disaster-recovery-drill.md)。
+
+## Word 第六章備份 IAM 政策完整 JSON
+
+Word 精簡版省略原本佔頁的 JSON 畫面，以下保存第 6.2 節的備份政策。這是 **TrueNAS 上傳／還原用**的 `TrueNAS-S3-Policy`，不是第 3-1 節僅含 ListBucket 的監控政策；兩個 IAM 使用者請分開。
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "AllowListAllBucketsForTrueNASVerification",
+      "Effect": "Allow",
+      "Action": ["s3:ListAllMyBuckets", "s3:GetBucketLocation"],
+      "Resource": "*"
+    },
+    {
+      "Sid": "AllowBucketLevelOperations",
+      "Effect": "Allow",
+      "Action": ["s3:ListBucket"],
+      "Resource": "arn:aws:s3:::truenas-backup-myhome-2026"
+    },
+    {
+      "Sid": "AllowObjectLevelOperations",
+      "Effect": "Allow",
+      "Action": ["s3:PutObject", "s3:GetObject", "s3:AbortMultipartUpload"],
+      "Resource": "arn:aws:s3:::truenas-backup-myhome-2026/*"
+    }
+  ]
+}
+```
+
+本政策依原實作保存；請替換為實際 bucket。未授予 DeleteObject 但仍允許上傳／覆寫，不能宣稱不可竄改或保證歷史版本。封存解凍另需還原身分具 RestoreObject；步驟見 [DR 演練](disaster-recovery-drill.md)。
+
+## Word 圖片預留與重複流程引用
+
+新版 Word 將金鑰申請共用流程集中於第 6.3 節；第 7.1 節只列出監控使用者、政策與權限差異，並引用該節。B 站接管的帳號、ACL 與 SMB 路徑引用第 5.5–5.8 節；S3 還原引用第 6.4–6.5 節，另列 PULL／測試資料集等差異。這些引用不代表用同一把金鑰或直接修改日常 PUSH 任務。
+
+Word 末兩頁已配置固定高度的驗收圖位置，直接替換格內文字並插入**行內圖片**。每格須使用一張事先合併的重點截圖，不要在格外逐張追加；依格內寬高上限縮放。驗收圖只保留能辨識狀態／時間／設定的區域，完整截圖及日誌放在 GitHub 演練紀錄。尚未提供實測圖時只標示預留，不宣稱已通過。
