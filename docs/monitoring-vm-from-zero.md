@@ -157,7 +157,27 @@ python3 /root/truenas-hybrid-cloud-monitoring/scripts/setup-monitoring-vm.py --e
 
 一般欄位按 Enter 保留顯示的舊值；秘密欄位按 Enter 保留舊值，輸入新值則替換。完成後會繼續安裝。此方式適用於由本安裝器建立的 VM。既有 Grafana 資料庫的 admin 密碼不會因重跑而重設；修改其他欄位時保留原 Grafana 密碼，若忘記密碼需另做 Grafana 密碼重設。
 
-## 4. 將真實 Cloud Sync 成功回報接回新 VM
+## 4. 必做：更新 TrueNAS A 的 Cloud Sync Post-script
+
+### 4-1. 指令方式：產生並套用 TrueNAS A 更新命令（已安裝 VM 不需重裝）
+
+**監測 VM 安裝與 NAS 設定是兩個步驟，安裝器不會自行登入 NAS 修改 Cloud Sync。** 在監測 VM 的 root Shell 執行：
+
+```bash
+git -C /root/truenas-hybrid-cloud-monitoring pull --ff-only origin main
+python3 /root/truenas-hybrid-cloud-monitoring/scripts/prepare-cloudsync-handoff.py
+cat /root/truenas-cloudsync-apply-command.sh
+```
+
+工具會讀取 VM 已安裝的 Receiver IP／Token 及已保存的 Task ID，產生更新命令；此時尚未修改 NAS。
+
+複製最後一行顯示的全部輸出（從 `python3 - <<'TRUENAS_CLOUDSYNC_UPDATE'` 到最後獨立一行 `TRUENAS_CLOUDSYNC_UPDATE`），貼到 **TrueNAS A 的 root Shell**。一般管理帳號開 Shell 時先執行 `sudo -i`。不要把這份更新命令貼進 Post-script 欄位；它是修改該欄位的 NAS 管理命令，和 curl 回報腳本用途不同。
+
+命令會按 Task ID 讀取任務，確認是預期 bucket 的 PUSH 任務，先將舊 Post-script 備份到 NAS 的 `/root/cloudsync-postscript-backups/`（權限 600），再只更新 `post_script`，最後讀回核對。排程、來源、目的、COPY／SYNC 模式及 Pre-script 不變。已一致就不重寫；若舊內容包含無法辨識的自訂命令，會停止，改用下方 Web UI 方式保留其他命令。
+
+工具不用手填 IP／Token，不會輪替 Token、啟動同步、假造成功回報或重裝 Grafana。產生的命令含秘密，只在你的 VM／NAS 間複製，不要提交 GitHub 或分享截圖。NAS root 目錄的備份應另依你的備份政策保存。
+
+### 4-2. Web UI 方式（與上方指令方式擇一）
 
 在監測 VM 執行以下命令，顯示安裝器已帶入實際 IP 與 Token 的 Post-script：
 
@@ -179,7 +199,29 @@ cat /root/truenas-cloudsync-postscript.sh
 
 若此 Post-script 原本還有其他用途的命令，保留它們，只替換舊的監控 curl 區塊。貼上後儲存，重新開啟任務確認最後網址包含 `:9108/success`。B 站不必加入這個 A 站 S3 任務的回報。
 
-接著在 TrueNAS A 對該任務按【Run Now】，確認任務 SUCCESS。回 Grafana 檢查「Cloud Sync 距成功回報」是否取得最近成功時間。此欄顯示的是實際任務回報；在第一次真實成功回報以前顯示無資料是預期狀態。
+### 4-3. 執行真實同步，再核對 Receiver 與 Prometheus
+
+兩種更新方式完成後，都要在 TrueNAS A 對該任務按【Run Now】，等待任務 SUCCESS。接著在**監測 VM**執行：
+
+```bash
+python3 /root/truenas-hybrid-cloud-monitoring/scripts/prepare-cloudsync-handoff.py --check
+```
+
+此命令唯讀檢查指定 Task ID 是否出現在 Receiver `/metrics` 與 Prometheus，並顯示 Receiver 收到回報的 UTC 時間。應對照剛才任務完成時間；只有歷史紀錄不代表本次成功回報。Prometheus 尚未採集時，等待約 1 分鐘重試，之後回 Grafana Refresh。告警解除仍需等待規則評估及通知排程。
+
+**Cloud Sync 任務 SUCCESS 不能單獨證明回報成功。** 舊腳本的 `|| true` 會吞掉 curl 錯誤；新腳本在回報失敗時記錄 logger 訊息，但也不會把已完成的資料傳輸改成失敗。首次真實回報前顯示「尚無紀錄」且超時規則告警，表示監控未收到證據，不等於已證明 S3 傳輸失敗。
+
+| 異常 | 檢查方式 |
+|---|---|
+| 仍然使用舊網址 | 重新開啟 NAS 任務確認，網址應是新 VM 的 Tailscale IP 加 `:9108/success` |
+| 連線逾時／拒絕 | 核對 NAS 到 VM 的 Tailnet 權限、TCP 9108、防火牆、Receiver 狀態與監聽 IP |
+| HTTP 403 | NAS Token 與新 VM Receiver 不一致；重新產生並套用更新命令，不猜測／重用舊 Token |
+| HTTP 400／未提供 CLOUD_SYNC_ID | 確認在真正 Cloud Sync Post-script 執行，保留 `${CLOUD_SYNC_ID}` |
+| Receiver 有紀錄、Grafana 尚無紀錄 | 比對安裝設定 Task ID 與實際任務 id，確認 Prometheus 的 cloudsync_success Target 為 UP |
+
+2026-10-20 現場問題：NAS 截圖仍指向舊 VM，且缺少連接埠／路徑；新 VM 沒收到回報。需要完成更新 NAS 的交接步驟。新增工具的驗證範圍見 [Cloud Sync 設定交接測試](cloudsync-handoff-test-report.md)。
+
+API 依據：[TrueNAS 25.10 cloudsync.update](https://api.truenas.com/v25.10/api_methods_cloudsync.update.html) 的 `post_script` 欄位；工具在 NAS 本機透過 `midclt` 呼叫。
 
 不要在監測 VM 執行 Post-script，也不要手動發送 `/success` 假造成功回報。
 
