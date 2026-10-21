@@ -2,6 +2,8 @@
 
 整合 TrueNAS A 正式資料與本地快照、B 站 PULL 複寫、AWS S3 備份，搭配 Prometheus、Grafana 及 Email／Discord 告警，建立從發現異常到資料取回的處理流程。
 
+**本儲存庫已公開，瀏覽、下載及 git clone 不需要 GitHub 帳號或 Token。** AWS、Tailscale 與監控服務仍使用自己的憑證。
+
 文件依目前技術文件的章節與環境整理。Word 保留重點流程與圖片；GitHub 保存完整欄位、命令、排錯與驗收方式。範例位址須和自己的環境核對。
 
 ## 文件怎麼看
@@ -66,7 +68,7 @@ A、B NAS 與各站 Windows 使用各自 Host-Only 網路；Gateway 外側介面
 - `configs/snmp-zfs-stable.yml`、`configs/grafana-alerts-stable.yaml`、`configs/grafana-notification-template.tmpl`：來源、告警與通知模板。
 - `grafana/TrueNAS_Hybrid_Cloud.json`：十面板；hrStorage 根掛載點不代表整池子資料集與快照總占用。
 
-歷史 `deploy-zfs-capacity.py`、`deploy-zfs-members.py`、`configure-truenas-snmp.py`、`snmp-zfs-modules.yml` 保留為排錯工具／設定，不是從零流程的追加步驟。本次整理不變更程式、安裝器、服務或設定檔。
+歷史 `deploy-zfs-capacity.py`、`deploy-zfs-members.py`、`configure-truenas-snmp.py`、`snmp-zfs-modules.yml` 保留為排錯工具／設定，不是從零流程的追加步驟。前次文件彙整保留程式與設定；本輪另同步使用者提供的 Grafana 版面，安裝器、Exporter、Prometheus 與告警規則維持原內容。
 
 ## 測試紀錄與資料保護
 

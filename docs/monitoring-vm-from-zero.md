@@ -30,7 +30,7 @@ sudo -i
 )
 ```
 
-私人儲存庫會詢問 GitHub Username／Password。Username 填 GitHub 帳號；Password 填有此儲存庫讀取權限的 Personal Access Token，不是 GitHub 登入密碼。輸入 Token 不顯示字元。不要把 Token 放進 clone 網址。
+本專案已公開，使用上方 HTTPS 網址下載與讀取更新，**不需要登入 GitHub，也不需要申請 Personal Access Token**。若仍出現 Username／Password 提示，先核對網址是否正確、儲存庫是否可直接從瀏覽器開啟，以及既有 Git remote／代理設定；不要把 Token 填進下載網址。Tailscale、AWS、Gmail 及 Grafana 的驗證仍依各自步驟完成。
 
 ### 1-2. 只安裝並登入 Tailscale
 
@@ -349,7 +349,13 @@ S3 費用是單一儲存單價 × 目前物件容量的估算，不含請求、�
 
 複寫是否成功須另外查看 TrueNAS Replication Tasks 與實際收到的快照，不能只比較兩站容量。
 
-面板由 `/etc/grafana/provisioning/dashboards/truenas.yaml` 載入 `/var/lib/grafana/dashboards/truenas.json`。UI 允許保存調整；再次執行安裝器或更新該檔案時，檔案中的版本會重新套用，持久修改應同步到儲存庫 JSON。
+面板由 `/etc/grafana/provisioning/dashboards/truenas.yaml` 載入 `/var/lib/grafana/dashboards/truenas.json`。UI 允許保存調整；之後更新來源檔仍會重新套用，所以正式採用的版面應同步回 GitHub。
+
+目前版面依 2026-10-21 提供的 Grafana 匯出檔整理：第一列為健康、採集狀態與記憶體；第二列為 A／B 容量與 CPU；第三列為 S3 費用、S3 容量、Cloud Sync 回報與 Tailscale 流量。十個面板的 PromQL 維持原內容。
+
+上傳檔為 V2 Resource，專案保留安裝器既有的 Classic 格式，轉存相同排列、大小與顯示設定；不寫入匯出來源的資料來源 UID、使用者 ID、管理路徑或資源時間戳。`${DS_PROMETHEUS}` 由安裝器替換，手動匯入則選自己的 Prometheus。原面板 UID 保留，避免建立另一份同名面板。
+
+GitHub 更新不會自動推送到既有 VM。新安裝會載入這份版面；你本次匯出來源的 VM 已有這個排列，不必為此重跑完整安裝器。其他既有 VM 更新前先匯出目前面板備份，並核對其資料來源與 provisioning 來源檔，避免以未替換的範例 IP 覆蓋現場查詢。
 
 ## 內部測試紀錄
 
@@ -361,7 +367,7 @@ Word 第七章保留建置順序，完整操作依本文件各節執行：
 
 | Word 項目 | GitHub 對應 |
 |---|---|
-| VM 建立、套件與 GitHub 下載／私人儲存庫登入 | 第 1、1-1 節 |
+| VM 建立、套件與公開 GitHub 下載 | 第 1、1-1 節 |
 | Tailscale 登入網址、已登入而無新網址、A／B 與 VM IP 區分 | 第 1-2 節 |
 | 安裝器全部欄位與 Cloud Sync Task ID 唯讀查詢 | 第 3-1 節 |
 | IAM 政策、專用使用者、重新申請 Access Key／Secret | 第 3-1、3-1-1 節 |

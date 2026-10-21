@@ -1,5 +1,15 @@
 # 監測 VM 從零建置測試報告
 
+## 2026-10-21 文件與面板版面同步
+
+本輪修改公開儲存庫的下載說明，並將使用者提供的 Grafana V2 匯出檔之版面、大小及顯示設定同步至原 Classic JSON。保留十個面板、原面板 UID、資料來源佔位值，以及所有原 PromQL；未修改安裝器、Exporter 或告警規則。
+
+- 執行既有 `python3 -m unittest discover -s tests -p 'test_*.py' -v`，**50 項全部通過**。
+- 比對每個面板的查詢數量、refId、expr、instant、range、legendFormat，確認與上傳檔及原版查詢一致；核對格線位置、面板 ID、邊界及無重疊。
+- 本輪沒有重新建立 Rocky VM、連到使用者 Grafana 或進行瀏覽器畫面驗收；測試通過不等於已在使用者 VM 部署。下方保留各次歷史測試範圍。
+
+## 2026-10-20 歷史測試
+
 日期：2026-10-20（臺北時間；GitHub 日誌為 2026-10-19 UTC）。
 
 歷史狀態（下述提交）：完整 VM 驗收通過。測試提交為 `a1e5093bfcdac1f81c5876c514c710270dd99a67`；最新一輪 Rocky 9.8 與 Rocky 10.2 的建置、故障／恢復、重跑與重開機均成功。外部服務為隔離替身，範圍見下方。
@@ -75,7 +85,7 @@ python3 -m unittest discover -s tests -p 'test_*.py' -v
 
 最新一輪兩份下載 artifact 已比對 GitHub 提供的 SHA256；逐台結果見 [VM 測試清單](test-evidence/2026-10-19/vm-test-ledger.json)。
 
-容量面板檔保持原內容，SHA256：`af19259d3b2c6da6e4a862837bf66e6cad8332abf4ad2ab6d80b4bfb07afbdc2`。
+上述歷史測試提交的容量面板檔 SHA256：`af19259d3b2c6da6e4a862837bf66e6cad8332abf4ad2ab6d80b4bfb07afbdc2`。這是當時版本的紀錄；2026-10-21 的版面同步見本頁開頭，不沿用此雜湊判定目前檔案未變。
 
 長期證據：[docs/test-evidence/2026-10-19](test-evidence/2026-10-19/)。CI 完整 artifact 另保留 14 天。早先中斷環境的未完整保存輸出不計入本表成功數。
 
