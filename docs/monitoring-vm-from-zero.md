@@ -6,7 +6,7 @@
 
 ## 1. 先建立 VM，單獨完成 Tailscale 登入
 
-在 VMware 建立 Rocky Linux 9／10 x86_64 VM，建議 2 vCPU、4 GiB RAM、40 GiB 系統碟。依專案架構保持 Host-Only，透過既有 Gateway VM 上網；先設定管理 IP、預設閘道與 DNS。下列命令只在監測 VM 執行，不是在 TrueNAS Shell。
+在 VMware 建立 Rocky Linux 9／10 x86_64 VM，建議 2 vCPU、4 GiB RAM、40 GiB 系統碟。監測 VM 的管理網路依 VMware 實際配置設定，不直接套用 A／B NAS 的 Host-Only 網段；本專案管理 IP 為 `192.168.23.159`。A／B NAS 與各站 Windows 使用各自 Host-Only 網路，由 Gateway VM 提供 NAT／路由上網。先確認管理端可達、VM 可下載套件，並核對 IP、預設閘道與 DNS；見 [環境表](../README.md#environment)。下列命令只在監測 VM 執行，不是在 TrueNAS Shell。
 
 ### 1-1. 下載程式（不會開始詢問 AWS 或 Gmail）
 
@@ -53,11 +53,11 @@ tailscale ip -4
 |---|---|---|
 | TrueNAS A Tailscale IP | 100.114.236.88 | 安裝器 A 站欄位；請核對 Tailscale 管理頁的 NAS 節點 |
 | TrueNAS B Tailscale IP | 100.113.107.95 | 安裝器 B 站欄位；請核對 B 站 NAS 節點 |
-| 監測 VM 管理 IP | 截圖為 192.168.23.158 | Grafana 網址 http://192.168.23.158:3000/ |
+| 監測 VM 管理 IP | 技術文件為 192.168.23.159 | Grafana 網址 http://192.168.23.159:3000/ |
 | 管理電腦的來源網段 | 管理電腦在該網段時用 192.168.23.0/24 | 防火牆允許誰開 Grafana／Prometheus |
 | 監測 VM Tailscale IP | 依 tailscale ip -4 的結果 | 安裝器自動產生 Cloud Sync 回報網址 |
 
-**你的截圖中 `可管理此 VM 的來源網段` 填了 `192.168.23.158`，這是 VM 位址。** 若管理電腦確實在 192.168.23.0/24，填 `192.168.23.0/24`。若只開給單台電腦，填「該管理電腦 IP/32」。不要把監測 VM 的 IP 當作管理來源。使用其他 Host-Only 網段或經 Gateway 路由時，依實際管理來源填寫；預設 /24 只是建議，不代表安裝器已確認你的網路。
+**`可管理此 VM 的來源網段` 是管理電腦的來源，不填監測 VM 自己的 `192.168.23.159`。** 若管理電腦確實在 192.168.23.0/24，填 `192.168.23.0/24`。若只開給單台電腦，填「該管理電腦 IP/32」。不要把監測 VM 的 IP 當作管理來源。使用其他 Host-Only 網段或經 Gateway 路由時，依實際管理來源填寫；預設 /24 只是建議，不代表安裝器已確認你的網路。
 
 監測 VM、A、B 必須可經 Tailnet 互通，存取規則允許 VM 對 NAS UDP 161、A 對 VM TCP 9108。管理端須能連 VM TCP 3000／9090。安裝需對外下載套件，Gmail 寄信需出站 TCP 587。
 
@@ -85,7 +85,7 @@ extend zfs /usr/sbin/zpool status -P
 |---|---|---|
 | A／B 站 Tailscale IP | 各 NAS 的 100.x IPv4 | Tailscale 管理頁找 A、B NAS；不是監測 VM IP |
 | 可管理此 VM 的來源網段 | 管理電腦所在 CIDR | 例如 192.168.23.0/24；單台電腦用其 IP/32；必須含斜線 |
-| Grafana 瀏覽網址 | 監測 VM 網頁完整位址 | 截圖環境可用 http://192.168.23.158:3000/；不是 Tailscale 登入網址 |
+| Grafana 瀏覽網址 | 監測 VM 網頁完整位址 | 本專案範例可用 http://192.168.23.159:3000/；不是 Tailscale 登入網址 |
 | S3 儲存桶 | 目的 bucket 名稱 | AWS S3 → Buckets；例如 truenas-backup-myhome-2026；不加 s3:// |
 | AWS Region | bucket 實際區域代碼 | AWS S3 bucket 內容確認；預設 ap-east-2，不能只依預設猜測 |
 | TrueNAS A Cloud Sync Task ID | S3 同步任務的 id 數字 | 依下方 TrueNAS Shell 命令確認；不是任務名稱或暫時的執行 job ID |
@@ -233,7 +233,7 @@ python3 /root/truenas-hybrid-cloud-monitoring/scripts/setup-monitoring-vm.py --e
 | 行末反斜線 `\` | 完整保留，不貼入 `&#x20;` 或自行折斷命令 |
 | 結尾的 logger 命令 | 完整保留，回報失敗時留下訊息 |
 
-例如本次新監測 VM 的回報位址為 `http://100.108.201.34:9108/success`；這只是現場案例，其他人應使用自己產生檔案中的位址。GitHub 文件不保存真實 Token。B 站不需加入這個 A 站 S3 任務的回報。
+例如本次新監測 VM 的回報位址為 `http://100.82.30.20:9108/success`；這只是現場案例，其他人應使用自己產生檔案中的位址。GitHub 文件不保存真實 Token。B 站不需加入這個 A 站 S3 任務的回報。
 
 **現場已遇到的錯誤：只把舊網址改成新網址，卻保留舊 Token。** Receiver 會拒絕驗證；本專案 Receiver 的 Token 不符時回傳 HTTP 403。使用 `curl -f` 時，HTTP 錯誤可能呈現 `Post-script failed with exit code 22`；22 本身不能單獨判斷為 403，需配合任務日誌確認。本次截圖可直接確認兩端 Token 不一致，完整替換腳本後，使用者回報已恢復正常。不能僅將 `|| true` 加回去讓任務表面成功，必須確認 Receiver 收到新的成功回報。
 
@@ -275,7 +275,7 @@ python3 /root/truenas-hybrid-cloud-monitoring/scripts/prepare-cloudsync-handoff.
 | HTTP 400／未提供 CLOUD_SYNC_ID | 確認在真正 Cloud Sync Post-script 執行，保留 `${CLOUD_SYNC_ID}` |
 | Receiver 有紀錄、Grafana 尚無紀錄 | 比對安裝設定 Task ID 與實際任務 id，確認 Prometheus 的 cloudsync_success Target 為 UP |
 
-2026-10-20 現場問題與修復：NAS 最初指向舊 VM 且缺少連接埠／路徑；改網址後仍保留舊 Token，回報驗證失敗。依第 4-1 節完整替換 Post-script 後，使用者回報已可正常使用。這是使用者現場結果，並非新增一輪自動化 VM 測試。新增工具的驗證範圍見 [Cloud Sync 設定交接測試](cloudsync-handoff-test-report.md)。
+2026-10-20 現場問題與修復：NAS 最初指向舊 VM 且缺少連接埠／路徑；改網址後仍保留舊 Token，回報驗證失敗。依第 4-1 節完整替換 Post-script 後，使用者回報已可正常使用。這是使用者現場結果，並非新增一輪自動化 VM 測試。新增工具的驗證範圍見 [Cloud Sync 設定交接測試](installation-test-report.md#cloudsync-handoff)。
 
 API 依據：[TrueNAS 25.10 cloudsync.update](https://api.truenas.com/v25.10/api_methods_cloudsync.update.html) 的 `post_script` 欄位；工具在 NAS 本機透過 `midclt` 呼叫。
 
@@ -321,15 +321,35 @@ journalctl -u s3_realtime_exporter -n 80 --no-pager
 journalctl -u cloudsync-monitor -n 80 --no-pager
 ```
 
+<a id="panels"></a>
 ## 6. 面板數值的正確意義
 
-容量沿用已驗證的 hrStorage 根掛載點查詢，不用六顆磁碟原始容量相加，因此不會把 RAID-Z2 原始磁碟容量直接當作可用容量。根掛載點「已用」不等於整個 ZFS 池所有子資料集、快照的總占用量；例如根資料集本身只有少量資料，其已用數字可能很小。兩站差異也不能據此判定複寫失敗。完整面板解釋見 [dashboard-panels.md](dashboard-panels.md)。
+容量沿用已驗證的 hrStorage 根掛載點查詢，不用六顆磁碟原始容量相加，因此不會把 RAID-Z2 原始磁碟容量直接當作可用容量。根掛載點「已用」不等於整個 ZFS 池所有子資料集、快照的總占用量；例如根資料集本身只有少量資料，其已用數字可能很小。兩站差異也不能據此判定複寫失敗。面板解釋集中於下表。
 
 容量顯示單位為二進位 bytes。六顆 500 GiB RAID-Z2 的名目資料容量約 2000 GiB（約 1.95 TiB），還需扣 ZFS 保留與其他開銷；六顆 500 GB 則是約 2000 GB（約 1.82 TiB），兩種磁碟標示不能混用。面板顯示 SNMP 實際取得的值，不硬寫成 2 TB。
 
 S3 費用是單一儲存單價 × 目前物件容量的估算，不含請求、取回、生命週期、最低保存期與流量費，不等於 AWS 帳單。
 
-歷史完整 VM 測試的範圍及提交見下方報告；其中 Tailnet 身分、NAS、S3、通知服務使用隔離替身。本次輸入流程調整的測試另外記錄於 [輸入流程修正驗證](input-flow-test-report.md)，不把歷史 VM 通過結果當作本次真實 Tailscale 登入已通過。
+歷史完整 VM 測試的範圍及提交見下方報告；其中 Tailnet 身分、NAS、S3、通知服務使用隔離替身。本次輸入流程調整的測試另外記錄於 [輸入流程修正驗證](installation-test-report.md#input-flow)，不把歷史 VM 通過結果當作本次真實 Tailscale 登入已通過。
+
+本版共十個面板：
+
+| 面板 | 意義 |
+|---|---|
+| A／B ZFS 綜合健康 | 結合 TrueNAS 原生池健康字串與 `zpool status -P` 成員異常指標。池實際 DEGRADED 才顯示 DEGRADED；池仍 ONLINE 但磁碟成員異常時顯示成員異常；缺資料不顯示綠燈正常。 |
+| 採集連線／S3 API | 監控端能否取得資料／列舉 S3。連線正常不代表磁碟健康，也不代表備份任務成功。 |
+| Cloud Sync 距成功回報 | TrueNAS A 真實 Cloud Sync 成功後回報的時間差。不是 S3 最近一個物件的上傳時間；無檔案變更的成功任務仍可更新此回報。 |
+| A 站根掛載點容量 | `/mnt/mainpool` 的已用、可用、總量，三者來自同一個 hrStorage 根掛載點。 |
+| B 站根掛載點容量 | `/mnt/backuppool`，與 A 站相同查詢邏輯。 |
+| S3 已用容量 | 列舉目前物件大小加總，不含未列出的舊版本等其他計費項目。 |
+| S3 儲存費估算（月） | 目前物件容量 × 單一儲存單價，僅為粗估，不是完整 AWS 帳單。 |
+| CPU 使用率 | A／B 處理器負載；不是儲存空間使用率。 |
+| 記憶體使用率 | A／B Physical memory 的 SNMP 使用率；ZFS ARC 快取也會占用記憶體。 |
+| Tailscale 網路流量 | Tailscale 介面的收／送位元組速率；不是整台 NAS 所有網卡總量。 |
+
+複寫是否成功須另外查看 TrueNAS Replication Tasks 與實際收到的快照，不能只比較兩站容量。
+
+面板由 `/etc/grafana/provisioning/dashboards/truenas.yaml` 載入 `/var/lib/grafana/dashboards/truenas.json`。UI 允許保存調整；再次執行安裝器或更新該檔案時，檔案中的版本會重新套用，持久修改應同步到儲存庫 JSON。
 
 ## 內部測試紀錄
 
@@ -372,8 +392,9 @@ journalctl -u grafana-server -n 80 --no-pager
 - 安裝器來源 CIDR 填成 VM 自己的 IP 時，依第 3-2 節用 `--edit-config` 修正並套用，不需重建全部 VM。
 - 出現登入畫面但密碼不符：既有 Grafana 資料庫的密碼不會因重跑而重設；這與 Web UI 無法建立連線是不同問題。
 
-第八章刪減的磁碟掃描、快照 Clone／Rollback、B 接管／回切、S3 解凍指令、權限與 RPO／RTO 量測，改收錄於 [災難復原演練完整流程](disaster-recovery-drill.md)。
+第八章四項情境的換碟掃描、B 站緊急取回與交回、本地快照取回、S3 下載至新 NAS，以及驗收與補圖位置，統一收錄於 [災難復原演練完整流程](disaster-recovery-drill.md)。
 
+<a id="backup-iam"></a>
 ## Word 第六章備份 IAM 政策完整 JSON
 
 Word 精簡版省略原本佔頁的 JSON 畫面，以下保存第 6.2 節的備份政策。這是 **TrueNAS 上傳／還原用**的 `TrueNAS-S3-Policy`，不是第 3-1 節僅含 ListBucket 的監控政策；兩個 IAM 使用者請分開。
@@ -406,14 +427,67 @@ Word 精簡版省略原本佔頁的 JSON 畫面，以下保存第 6.2 節的備�
 
 本政策依原實作保存；請替換為實際 bucket。未授予 DeleteObject 但仍允許上傳／覆寫，不能宣稱不可竄改或保證歷史版本。封存解凍另需還原身分具 RestoreObject；步驟見 [DR 演練](disaster-recovery-drill.md)。
 
-## Word 圖片預留與重複流程引用
+## 建置後的災難情境與圖片
 
-新版 Word 將金鑰申請共用流程集中於第 6.3 節；第 7.1 節只列出監控使用者、政策與權限差異，並引用該節。B 站接管的帳號、ACL 與 SMB 路徑引用第 5.5–5.8 節；S3 還原引用第 6.4–6.5 節，另列 PULL／測試資料集等差異。這些引用不代表用同一把金鑰或直接修改日常 PUSH 任務。
+第八章統一使用 [災難復原演練 SOP](disaster-recovery-drill.md)：8.1 雙碟故障、8.2 異地備份緊急取回、8.3 誤刪與本地快照、8.4 S3 至新地端 NAS。每節列出操作位置、帳號、設定、通過條件及補圖位置。勒索應變與封存解凍另列延伸，未計入本輪已完成成果。
 
-Word 末四頁已配置固定高度的驗收圖位置，直接替換格內文字並插入**行內圖片**。每格須使用一張事先合併的重點截圖，不要在格外逐張追加；依格內寬高上限縮放。驗收圖只保留能辨識狀態／時間／設定的區域，完整截圖及日誌放在 GitHub 演練紀錄。尚未提供實測圖時只標示預留，不宣稱已通過。
+Word 保留重點流程及合併截圖；欄位細節與排錯查本頁，演練細節查 SOP。依實際圖片大小控制頁數，不宣稱預留文字就能保證最終頁數。
 
-## 建置後的災難情境模擬測試
+<a id="diagnostics"></a>
+## 補充：來源排查與採集離線驗證
 
-完成本頁的監控、真實 Cloud Sync 回報與通知驗收後，可依 [測試 01：VMware 雙碟故障自動告警與 RAID-Z2 復原](raidz2-dual-disk-drill.md) 演練 Word 8.1。
+以下集中原故障測試文件中仍適用的監控排查。磁碟故障只依 SOP 8.1，不把早期單碟 Offline 與現行雙碟 Replace 流程混用。
 
-流程包含兩顆資料碟與 VMDK／GUID 對照、故障前 SMB 基準、同組 RAID-Z2 雙碟移除、真實 Email／Discord 告警、新碟掃描、逐顆 Replace／resilver，以及 ONLINE、檔案雜湊與恢復通知驗收。關機移除／加入磁碟造成的停機會獨立記錄，不宣稱全程不中斷。文件已建立，實際演練結果待填；不以 Contact point Test 或既有隔離替身測試當作雙碟實測證據。
+### 來源與規則
+
+
+A／B TrueNAS SNMP 附屬參數各保留一條：
+
+```text
+extend zfs /usr/sbin/zpool status -P
+```
+
+本版容量使用標準 hrStorage，不需要 `zfs_capacity` 或 `zfsUsablePool`。若既有系統另有用途，保留其設定即可。
+
+在監測 VM 執行：
+
+```bash
+for NAS_TS_IP in 100.114.236.88 100.113.107.95; do
+  snmpget -v2c -c public -t 5 -r 1 "$NAS_TS_IP" \
+    1.3.6.1.4.1.8072.1.3.2.3.1.2.3.122.102.115 \
+    1.3.6.1.4.1.8072.1.3.2.3.1.4.3.122.102.115
+  curl -fsSG http://127.0.0.1:9116/snmp \
+    --data-urlencode "target=$NAS_TS_IP" \
+    --data-urlencode 'auth=public_v2' \
+    --data-urlencode 'module=truenas_zfs' | grep -E '^(zpoolHealthStr|zfsMemberFault|zfsStatusCommandExit)'
+done
+python3 /root/truenas-hybrid-cloud-monitoring/scripts/setup-monitoring-vm.py --verify-only
+```
+
+SNMP 回應應有完整成員表與指令退出碼 0。正常時 `zfsMemberFault` 為 0；表格含異常成員時為 1；無法辨識輸出時為 2。資料缺失不是正常。`--verify-only` 是唯讀檢查，會檢查兩站容量／成員來源、S3 API，以及 Grafana 資料源與九條規則實際評估。
+
+先到 Grafana【Alerting → Contact points】分別測試 Email、Discord 收訊。聯絡點 Test 成功僅證明通知管道可用，仍須完成下列真正的規則觸發與恢復測試。
+
+### 採集離線驗證（選用）
+
+先記錄目前狀態，在維護／演練時段進行；暫停 Exporter 會讓 A、B 監控同時失去來源，不是 NAS 本身故障。
+
+
+在監測 VM 暫停 SNMP Exporter：
+
+```bash
+systemctl stop snmp_exporter
+```
+
+確認 Prometheus `/targets` 兩個 NAS Target 變為 DOWN，面板「採集連線」顯示離線；ZFS 綜合健康應顯示資料不完整，不能顯示 DEGRADED。等待離線／來源缺失規則從 Pending 進入 Firing，確認兩管道收到對應告警名稱，而非 `DatasourceError`。
+
+完成後恢復：
+
+```bash
+systemctl start snmp_exporter
+systemctl is-active snmp_exporter
+```
+
+確認 Target 回到 UP、健康資料恢復，並收到解除通知。若沒有通知，依序查 Target、實際指標、Alert rules 的 Health／State，再查聯絡點與通知政策；不要只修改面板。
+
+SNMP 預設每 15 秒、S3 每 5 分鐘採集；告警另受每分鐘評估、Pending、通知分組與網路影響。來源缺失不能判為健康；聯絡點 Test 也不能代替真正規則觸發與解除的驗收。

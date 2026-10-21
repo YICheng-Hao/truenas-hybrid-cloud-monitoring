@@ -2,7 +2,9 @@
 
 日期：2026-10-20（臺北時間；GitHub 日誌為 2026-10-19 UTC）。
 
-狀態：最終版本完整通過。測試提交為 `a1e5093bfcdac1f81c5876c514c710270dd99a67`；最新一輪 Rocky 9.8 與 Rocky 10.2 的建置、故障／恢復、重跑與重開機均成功。外部服務為隔離替身，範圍見下方。
+歷史狀態（下述提交）：完整 VM 驗收通過。測試提交為 `a1e5093bfcdac1f81c5876c514c710270dd99a67`；最新一輪 Rocky 9.8 與 Rocky 10.2 的建置、故障／恢復、重跑與重開機均成功。外部服務為隔離替身，範圍見下方。
+
+本文彙整歷史 VM、輸入流程與 Cloud Sync 交接測試，各節的提交、日期與替身範圍分開記錄；不表示本次文件整理重新執行這些測試。
 
 正式流程：[從零建置與複製貼上命令](monitoring-vm-from-zero.md)。
 
@@ -76,3 +78,57 @@ python3 -m unittest discover -s tests -p 'test_*.py' -v
 容量面板檔保持原內容，SHA256：`af19259d3b2c6da6e4a862837bf66e6cad8332abf4ad2ab6d80b4bfb07afbdc2`。
 
 長期證據：[docs/test-evidence/2026-10-19](test-evidence/2026-10-19/)。CI 完整 artifact 另保留 14 天。早先中斷環境的未完整保存輸出不計入本表成功數。
+
+<a id="input-flow"></a>
+## 安裝輸入流程修正驗證
+
+日期：2026-10-20（臺北時間）。本次針對 Tailscale 登入順序、欄位說明、輸入防呆及至少 8 碼的 Grafana 密碼進行修改。
+
+### 本次實際測試
+
+| 輪次 | 指令／範圍 | 結果 |
+|---|---|---|
+| 1 | `python3 -m py_compile scripts/setup-monitoring-vm.py`；原有 Python 回歸測試 | 語法檢查通過；32 項全部通過 |
+| 2 | `python3 -m unittest discover -s tests -p 'test_*.py' -v`；包含新增輸入流程測試 | 43 項全部通過（原有 32＋新增 11） |
+
+新增案例涵蓋：8 碼接受／7 碼拒絕、管理來源必須含明確 CIDR、錯誤 Task ID 與來源 IP 當場重填、空白秘密重填、15 欄全新輸入、修正截圖中的錯誤已存來源值並保留秘密及 600 權限、已登入不再次登入、未登入先執行 `tailscale up` 再讀取 IP、Rocky 10 軟體源、`--tailscale-only` 不詢問秘密，以及節點未核准時停止。
+
+### 修正的實際問題
+
+- 舊流程先詢問所有資料才開始 Tailscale；現在有獨立登入步驟，正式安裝亦先確認登入。
+- 單一 IP 原先會被 IPv4Network 隱含視為 /32；現在要求明確輸入網段或管理電腦 IP/32，避免誤填 VM 自己的 IP。
+- 舊版格式錯誤直到全部輸入後才發現；現在留在同一欄重填。另提供 `--edit-config` 修正已保存資料。
+- 教學明確要求更新 TrueNAS A 的 Post-script，指出截圖回報網址缺少 `:9108/success`，說明 Token 由檔案產生、`${CLOUD_SYNC_ID}` 原樣保留。
+- 文件先前同時存在「完整 VM 已測」與「尚未測」的舊段落；現改為指向各自版本的測試報告。
+
+### 驗收邊界
+
+本次 Tailscale 互動分支用 mock 驗證順序，沒有登入使用者的 Tailnet；沒有在這個環境重新建立全新 Rocky VM，也未使用真實 IAM、Gmail、Discord 或 TrueNAS 任務測試。歷史四輪八台 VM 結果保留於 [上方完整 VM 測試](#完整-vm-測試輪數)，不算作本次完整 VM 重測。
+
+當時的輸入流程修正提交調整安裝器、教學與新增測試／報告；容量面板、PromQL、Exporter 與通知設定檔保持原版本。現場仍須依 [建置教學](monitoring-vm-from-zero.md) 驗收真實 S3 API、A／B SNMP、Cloud Sync 任務回報與通知收訊。
+
+<a id="cloudsync-handoff"></a>
+## Cloud Sync 設定交接修正與測試
+
+日期：2026-10-20（臺北時間）。
+
+### 現場問題與原因
+
+使用者已能開啟 Grafana，A／B SNMP 與 S3 API 正常，但 Cloud Sync 顯示「尚無紀錄」且成功回報超時告警。NAS 截圖仍指向舊監測 VM，網址缺少 `:9108/success`。監測 VM 重建後，NAS 中的回報位址與 Token 不會自動更新；只產生腳本不等於已套用 NAS 設定。Token 是否相同無法由面板證明，必須以新 VM 的 Receiver 設定為準。
+
+### 修正
+
+- 新增 `scripts/prepare-cloudsync-handoff.py`，讀取監測 VM 現有 Receiver 設定與 Task ID，產生含真實值的 TrueNAS Shell 更新命令，不需手填秘密或遠端 SSH 憑證。
+- 在 NAS 本機按 Task ID／PUSH／bucket 核對，先備份舊 Post-script，只透過 `cloudsync.update` 更新 `post_script`，再讀回比對；自訂命令不自動覆寫。
+- 新增唯讀 `--check`，分別檢查 Receiver 與 Prometheus 的指定 Task ID 回報，顯示收到時間供對照。
+- 教學第 4 節分開標示監測 VM 與 TrueNAS A 各自要執行的命令，以及真實任務驗收。工具產生檔案不等於已修改 NAS；更新設定也不等於已收到真實成功回報。
+
+### 本次實際測試
+
+本次一輪 Python 回歸測試：`python3 -m unittest discover -s tests -p 'test_*.py' -v`，50 項全部通過（先前 43 項＋新增 7 項）。新增工具另經 `py_compile` 檢查。
+
+新增案例驗證：舊 curl 回報替換、600 權限備份、只更新 post_script、不改 Pre-script／排程；重跑不重寫；含自訂命令停止；bucket 不符停止；使用現有 Token 與完整網址；執行實際產生的 NAS 更新程式並驗證 API 更新／讀回流程；以真實 `sh`／`curl` 執行產生的 Post-script，向隔離的真實 Receiver HTTP 程序發送測試 Task ID，確認寫入測試狀態。
+
+NAS API 測試使用 mock，不是實際 TrueNAS。HTTP 測試用假 Token／Task ID 與暫存檔，不會發送至使用者 Receiver，也不會修改使用者成功紀錄。本次沒有在使用者 NAS 執行更新、沒有啟動其同步任務，也沒有重新建立 Rocky VM。現場需依第 4 節套用設定、Run Now、對照成功回報時間後才能認定完成。
+
+正式操作：[從零建置教學第 4 節](monitoring-vm-from-zero.md#4-必做更新-truenas-a-的-cloud-sync-post-script)。
